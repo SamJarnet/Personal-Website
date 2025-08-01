@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Samuel Jarnet | Portfolio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex: 1 0 auto; /* grow and fill */
+        }
+        footer {
+            flex-shrink: 0; /* don’t shrink */
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Samuel Jarnet</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/projects">Projects</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <header class="py-5 text-center">
+            <div class="container">
+                <h1 class="display-4">Hi, I'm Samuel 👋</h1>
+                <p class="lead">Student developer, researching </p>
+            </div>
+        </header>
+
+        <section class="py-5">
+            <div class="container">
+                <h2 class="mb-4">Featured Projects</h2>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card bg-secondary text-light">
+                            <div class="card-body">
+                                <h5 class="card-title">Hangman Game</h5>
+                                <p class="card-text">A Java-based game that adapts difficulty dynamically. Includes OOP structure and scoring.</p>
+                                <a href="https://github.com/SamJarnet/Java-Hangman-Game" class="btn btn-light" target="_blank">GitHub</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-secondary text-light">
+                            <div class="card-body">
+                                <h5 class="card-title">MP3 Player Recommender</h5>
+                                <p class="card-text">Python project with GUI and SQLite. Recommends music using user preferences and queues.</p>
+                                <a href="https://github.com/SamJarnet/MP3-Player-Recommendation" class="btn btn-light" target="_blank">GitHub</a>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Add more cards as needed -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-primary text-center text-light py-3 mt-5">
+        &copy; 2025 Samuel Jarnet
+    </footer>
+
+</body>
+</html>
