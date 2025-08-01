@@ -1,62 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <title>Projects | Samuel Jarnet</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-        .content-wrapper {
-            flex: 1 0 auto; /* grow to fill */
-        }
-        footer {
-            flex-shrink: 0; /* don’t shrink */
-        }
-    </style>
-</head>
-<body class="bg-dark text-light">
+{% extends "base.html" %}
 
-    {% include 'navbar.html' %}
-
-    <div class="content-wrapper">
-        <div class="container py-5">
-            <h1 class="mb-4">Projects</h1>
-            <div class="row g-4">
-                <!-- Project 1 -->
-                <div class="col-md-6">
-                    <div class="card bg-secondary text-light">
-                        <div class="card-body">
-                            <h5 class="card-title">Java Hangman Game</h5>
-                            <p class="card-text">Console-based Java game with abstract classes, difficulty levels, and scoring.</p>
-                            <a href="https://github.com/SamJarnet/Java-Hangman-Game" class="btn btn-light" target="_blank">View Code</a>
-                        </div>
+{% block content %}
+<div class="content-wrapper">
+    <div class="container py-5">
+        <h1 class="mb-4 section-title">Projects</h1>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card custom-card text-light">
+                    <div class="card-body">
+                        <h5 class="card-title">Java Hangman Game</h5>
+                        <p class="card-text">Console-based Java game that adapts difficulty dynamically. Includes OOP structure and scoring.</p>
+                        <a href="https://github.com/SamJarnet/Java-Hangman-Game" class="btn btn-primary" target="_blank">View Code</a>
                     </div>
                 </div>
-                <!-- Project 2 -->
-                <div class="col-md-6">
-                    <div class="card bg-secondary text-light">
-                        <div class="card-body">
-                            <h5 class="card-title">MP3 Player Recommendation System</h5>
-                            <p class="card-text">Python GUI app that recommends music using queueing, login auth, and file system storage.</p>
-                            <a href="https://github.com/SamJarnet/MP3-Player-Recommendation" class="btn btn-light" target="_blank">View Code</a>
-                        </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card custom-card text-light">
+                    <div class="card-body">
+                        <h5 class="card-title">MP3 Player Recommendation System</h5>
+                        <p class="card-text">Python GUI app that recommends music using queueing, login auth, and file system storage.</p>
+                        <a href="https://github.com/SamJarnet/MP3-Player-Recommendation" class="btn btn-primary" target="_blank">View Code</a>
                     </div>
                 </div>
-                <!-- Add more projects here -->
+            </div>
+            <div class="col-md-6">
+                <div class="card custom-card text-light">
+                    <div class="card-body">
+                        <h5 class="card-title">This website!</h5>
+                        <p class="card-text">First website project to showcase my achievements and work-in-progress projects and research.</p>
+                        <a href="https://github.com/SamJarnet/Personal-Website" class="btn btn-primary" target="_blank">View Code</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card custom-card text-light">
+                    <div class="card-body">
+                        <h5 class="card-title">Java Boids Simulation</h5>
+                        <p class="card-text">Java Swing Library GUI Boids simulation inspired by flocking behavior in nature.</p>
+                        <a href="https://github.com/SamJarnet/Java-Boids-Simulation" class="btn btn-primary" target="_blank">View Code</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    {% include 'footer.html' %}
-
-</body>
-</html>
+</div>
+{% endblock %}
