@@ -1,0 +1,37 @@
+[2025-08-06 17:44:25 +0100] [1084] [INFO] Starting gunicorn 23.0.0
+[2025-08-06 17:44:25 +0100] [1084] [INFO] Listening at: http://127.0.0.1:8000 (1084)
+[2025-08-06 17:44:25 +0100] [1084] [INFO] Using worker: sync
+[2025-08-06 17:44:25 +0100] [1085] [INFO] Booting worker with pid: 1085
+[2025-08-06 17:44:25 +0100] [1086] [INFO] Booting worker with pid: 1086
+[2025-08-06 17:44:25 +0100] [1087] [INFO] Booting worker with pid: 1087
+[2025-08-06 17:44:25 +0100] [1088] [INFO] Booting worker with pid: 1088
+[2025-08-06 17:45:07 +0100] [1097] [INFO] Starting gunicorn 23.0.0
+[2025-08-06 17:45:07 +0100] [1097] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:07 +0100] [1097] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:08 +0100] [1097] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:08 +0100] [1097] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:09 +0100] [1097] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:09 +0100] [1097] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:10 +0100] [1097] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:10 +0100] [1097] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:11 +0100] [1098] [INFO] Starting gunicorn 23.0.0
+[2025-08-06 17:45:11 +0100] [1098] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:11 +0100] [1098] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:11 +0100] [1097] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:11 +0100] [1097] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:12 +0100] [1098] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:12 +0100] [1098] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:12 +0100] [1097] [ERROR] Can't connect to ('127.0.0.1', 8000)
+[2025-08-06 17:45:13 +0100] [1098] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:13 +0100] [1098] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:14 +0100] [1098] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:14 +0100] [1098] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:15 +0100] [1098] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2025-08-06 17:45:15 +0100] [1098] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2025-08-06 17:45:16 +0100] [1098] [ERROR] Can't connect to ('127.0.0.1', 8000)
+[2025-08-06 17:47:14 +0100] [1086] [INFO] Worker exiting (pid: 1086)
+[2025-08-06 17:47:14 +0100] [1085] [INFO] Worker exiting (pid: 1085)
+[2025-08-06 17:47:14 +0100] [1084] [INFO] Handling signal: term
+[2025-08-06 17:47:14 +0100] [1087] [INFO] Worker exiting (pid: 1087)
+[2025-08-06 17:47:14 +0100] [1088] [INFO] Worker exiting (pid: 1088)
+[2025-08-06 17:47:14 +0100] [1084] [INFO] Shutting down: Master
