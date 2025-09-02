@@ -2,14 +2,25 @@
 
 {% block content %}
 <div class="content-wrapper">
-    <div class="container py-5">
-        <h1 class="mb-4 section-title">Projects</h1>
+    <div class="container py-6">
+        <h1 class="mb-4 section-title">Projects in Development</h1>
+
+        <div class="section-box">
+            <div class="row">
+                <div class="col-md-14">
+                    <p class="lead">My current project is a mobile app designed to help users access private healthcare and home visits with ease using Dart and Flutter, tested with physical devices and Android Studio emulators (with plans for iOS later on). I have already integrated Firebase for authentication and working on real-time data handling for the project. I'll keep this section updated with my latest developments and reveal more as I develop the project, but my focus is currently on getting a working prototype with a smooth user experience for this ambitious project. </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container py-6">
+        <h1 class="mb-4 section-title">Past Projects</h1>
         <div class="row g-4">
             <div class="col-md-6">
                 <div class="card custom-card text-light">
                     <div class="card-body">
                         <h5 class="card-title">Java Hangman Game</h5>
-                        <p class="card-text">Console-based Java game that adapts difficulty dynamically. Includes OOP structure and scoring.</p>
+                        <p class="card-text">Console-based Java game that adapts difficulty dynamically. Includes OOP structure and scoring. This project improved my knowledge of Object Oriented Programming and planning using UML diagrams, alongside handling files with Java and a large focus on validation and robustness. UML Class and Sequence diagrams also located in the GitHub repo.</p>
                         <a href="https://github.com/SamJarnet/Java-Hangman-Game" class="btn btn-primary" target="_blank">View Code</a>
                     </div>
                 </div>
@@ -18,7 +29,7 @@
                 <div class="card custom-card text-light">
                     <div class="card-body">
                         <h5 class="card-title">MP3 Player Recommendation System</h5>
-                        <p class="card-text">Python GUI app that recommends music using queueing, login auth, and file system storage.</p>
+                        <p class="card-text">Python GUI app that recommends music using queueing, login authorisation, and file system storage. (can only play songs downloaded legally in correct file format due to copyright laws). This project gave me the opportunity to many techniques including: hashing for user authentication, file management for user-specific playlist and song storage, circular queue and sorting algorithm implementation.</p>
                         <a href="https://github.com/SamJarnet/MP3-Player-Recommendation" class="btn btn-primary" target="_blank">View Code</a>
                     </div>
                 </div>
@@ -26,8 +37,8 @@
             <div class="col-md-6">
                 <div class="card custom-card text-light">
                     <div class="card-body">
-                        <h5 class="card-title">This website!</h5>
-                        <p class="card-text">First website project to showcase my achievements and work-in-progress projects and research.</p>
+                        <h5 class="card-title">My Personal Website</h5>
+                        <p class="card-text">My first website project to showcase my achievements and work-in-progress projects and research. I learnt how to use Flask and how to run a website with Gunicorn and make it secure with Fail2Ban and Nginx. I also developed HTML and CSS skills for the websites appearance and design.</p>
                         <a href="https://github.com/SamJarnet/Personal-Website" class="btn btn-primary" target="_blank">View Code</a>
                     </div>
                 </div>
@@ -36,12 +47,13 @@
                 <div class="card custom-card text-light">
                     <div class="card-body">
                         <h5 class="card-title">Java Boids Simulation</h5>
-                        <p class="card-text">Java Swing Library GUI Boids simulation inspired by flocking behavior in nature.</p>
+                        <p class="card-text">Java Swing Library GUI Boids simulation inspired by flocking behavior in nature. This short project was one my first Java projects where I learnt GUI skills with the Swing library, it also was a fun way to practice implementation of real life ideas with mathematical representations.</p>
                         <a href="https://github.com/SamJarnet/Java-Boids-Simulation" class="btn btn-primary" target="_blank">View Code</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    
 </div>
 {% endblock %}
