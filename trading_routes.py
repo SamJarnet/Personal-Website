@@ -1,19 +1,32 @@
 """
 trading_routes.py
 Flask blueprints handling API endpoints and web layout rendering.
-Integrates the user-defined core algorithmic engine.
+Integrates the user-defined core algorithmic engine alongside a persistent local screener cache.
 """
 
 import math
+import os
+import json
+from datetime import datetime
 from flask import Blueprint, jsonify, request, render_template
 import yfinance as yf
 import pandas as pd
 import numpy as np
-
+from dotenv import load_dotenv
 # Import your native strategy definitions
 import strategy_engine 
 
+load_dotenv()
+
 trading_bp = Blueprint("trading", __name__)
+
+ADMIN_SECRET_TOKEN = os.environ.get("ADMIN_SECRET_TOKEN")
+if not ADMIN_SECRET_TOKEN:
+    raise RuntimeError("CRITICAL ERROR: ADMIN_SECRET_TOKEN environment variable is not set!")
+
+DATA_DIR = "data"
+TICKERS_FILE = "tickers.txt"
+os.makedirs(DATA_DIR, exist_ok=True)
 
 STAT_KEYS = [
     "currentPrice", "previousClose", "open", "dayLow", "dayHigh",
@@ -66,11 +79,139 @@ def series_to_json(s: pd.Series):
         if v is None:
             continue
         try:
-            labels.append(ts.strftime("%Y-%m-%d"))
+            labels.append(ts.strftime("%Y-%m-%d")) # type: ignore
             values.append(v)
         except Exception:
             pass
     return {"labels": labels, "values": values}
+
+
+# ── screener caching and math helpers ─────────────────────────────────────────
+
+def get_ticker_list():
+    """Reads tickers from tickers.txt or populates a default list."""
+    if os.path.exists(TICKERS_FILE):
+        with open(TICKERS_FILE, "r") as f:
+            tickers = [line.strip().upper() for line in f if line.strip()]
+            if tickers:
+                return tickers
+    default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'NFLX', 'AMD', 'INTC']
+    with open(TICKERS_FILE, "w") as f:
+        for t in default_tickers:
+            f.write(f"{t}\n")
+    return default_tickers
+
+
+def update_ticker_data(symbol):
+    """Updates stock data folder cache incrementally, adding only missing days."""
+    symbol = symbol.upper()
+    history_file = os.path.join(DATA_DIR, f"{symbol}_history.csv")
+    info_file = os.path.join(DATA_DIR, f"{symbol}_info.json")
+    financials_file = os.path.join(DATA_DIR, f"{symbol}_financials.csv")
+    balance_file = os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv")
+    
+    ticker = yf.Ticker(symbol)
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    
+    # Avoid scraping fundamentals multiple times in a single day
+    fundamentals_updated_today = False
+    if os.path.exists(info_file):
+        mtime = os.path.getmtime(info_file)
+        if datetime.fromtimestamp(mtime).strftime("%Y-%m-%d") == today_str:
+            fundamentals_updated_today = True
+
+    if not fundamentals_updated_today:
+        try:
+            info = ticker.info
+            if info:
+                with open(info_file, 'w') as f:
+                    json.dump(info, f)
+            
+            fin = ticker.financials
+            if fin is not None and not fin.empty:
+                fin.to_csv(financials_file)
+                
+            bs = ticker.balance_sheet
+            if bs is not None and not bs.empty:
+                bs.to_csv(balance_file)
+        except Exception as e:
+            print(f"Error updating fundamentals for {symbol}: {e}")
+
+    # Incremental Price Data Update (Fetch only missing days)
+    try:
+        if os.path.exists(history_file):
+            existing_df = pd.read_csv(history_file, index_col=0, parse_dates=True)
+            if not existing_df.empty:
+                last_date = existing_df.index.max()
+                new_df = ticker.history(start=last_date.strftime("%Y-%m-%d"))
+                if not new_df.empty:
+                    combined_df = pd.concat([existing_df, new_df])
+                    combined_df = combined_df[~combined_df.index.duplicated(keep='last')]
+                    combined_df.to_csv(history_file)
+            else:
+                ticker.history(period="5y").to_csv(history_file)
+        else:
+            ticker.history(period="5y").to_csv(history_file)
+    except Exception as e:
+        print(f"Error updating history for {symbol}: {e}")
+
+
+def compute_metrics(info, financials=None, balance_sheet=None):
+    """Parses custom analytical parameters from the cached file datasets."""
+    metrics = {}
+    
+    # 1. Gross Margin
+    gm = info.get("grossMargins")
+    metrics["gross_margin"] = gm * 100 if gm is not None else None
+    
+    # 2. P/E Ratio
+    metrics["pe"] = info.get("trailingPE") or info.get("forwardPE")
+    
+    # 3. Debt to Equity
+    de = info.get("debtToEquity")
+    metrics["debt_equity"] = de / 100.0 if de and de > 5 else de
+    
+    # 4. Free Cash Flow (In Billions)
+    fcf = info.get("freeCashflow")
+    metrics["fcf"] = fcf / 1e9 if fcf is not None else None
+    
+    # 5. PEGY Ratio
+    pe = metrics["pe"]
+    eg = info.get("earningsGrowth") 
+    dy = info.get("dividendYield")   
+    if pe and eg:
+        growth_total = (eg * 100) + ((dy * 100) if dy else 0)
+        metrics["pegy"] = pe / growth_total if growth_total > 0 else None
+    else:
+        metrics["pegy"] = None
+
+    # 6. ROCE Calculation with fallback to ROE
+    roce = None
+    if financials is not None and balance_sheet is not None:
+        try:
+            ebit = None
+            for k in ['Operating Income', 'EBIT']:
+                if k in financials.index:
+                    ebit = financials.loc[k].iloc[0]
+                    break
+            total_assets = balance_sheet.loc['Total Assets'].iloc[0] if 'Total Assets' in balance_sheet.index else None
+            current_liab = 0
+            for k in ['Current Liabilities', 'Total Current Liabilities']:
+                if k in balance_sheet.index:
+                    current_liab = balance_sheet.loc[k].iloc[0]
+                    break
+            if ebit is not None and total_assets is not None:
+                cap_employed = total_assets - current_liab
+                if cap_employed > 0:
+                    roce = (ebit / cap_employed) * 100
+        except Exception:
+            pass
+    if roce is None:
+        roe = info.get("returnOnEquity")
+        roce = roe * 100 if roe is not None else None
+        
+    metrics["roce"] = roce
+    return metrics
 
 
 # ── page routes ───────────────────────────────────────────────────────────────
@@ -113,6 +254,88 @@ def get_history(symbol):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# ── screener endpoints ────────────────────────────────────────────────────────
+
+@trading_bp.route("/api/trading/update_screener_data", methods=["POST"])
+def update_screener_data():
+    user_token = request.headers.get("X-Admin-Token")
+    if not user_token or user_token != ADMIN_SECRET_TOKEN:
+        return jsonify({"error": "Unauthorized: Admin access required"}), 401
+        
+    try:
+        tickers = get_ticker_list()
+        updated = 0
+        for symbol in tickers:
+            try:
+                update_ticker_data(symbol)
+                updated += 1
+            except Exception:
+                continue
+        return jsonify({"status": "success", "message": "Screener data synchronized."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@trading_bp.route("/api/trading/screen", methods=["POST"])
+def screen_tickers():
+    try:
+        body = request.get_json() or {}
+        min_gm = float(body.get("min_gm", 30))
+        min_roce = float(body.get("min_roce", 15))
+        min_fcf = float(body.get("min_fcf", 1.0))
+        max_debt_equity = float(body.get("max_debt_equity", 0.5))
+        max_pegy = float(body.get("max_pegy", 1.0))
+        max_pe = float(body.get("max_pe", 20))
+        
+        tickers = get_ticker_list()
+        results = []
+        
+        for symbol in tickers:
+            info_file = os.path.join(DATA_DIR, f"{symbol}_info.json")
+            if not os.path.exists(info_file):
+                continue
+            with open(info_file, "r") as f:
+                info = json.load(f)
+                
+            financials_file = os.path.join(DATA_DIR, f"{symbol}_financials.csv")
+            balance_file = os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv")
+            fin_df = pd.read_csv(financials_file, index_col=0) if os.path.exists(financials_file) else None
+            bs_df = pd.read_csv(balance_file, index_col=0) if os.path.exists(balance_file) else None
+            
+            m = compute_metrics(info, fin_df, bs_df)
+            
+            if m["gross_margin"] is None or m["gross_margin"] < min_gm: continue
+            if m["roce"] is None or m["roce"] < min_roce: continue
+            if m["fcf"] is None or m["fcf"] < min_fcf: continue
+            if m["debt_equity"] is None or m["debt_equity"] > max_debt_equity: continue
+            if m["pegy"] is None or m["pegy"] > max_pegy: continue
+            if m["pe"] is None or m["pe"] > max_pe: continue
+            
+            results.append({
+                "symbol": symbol,
+                "name": info.get("longName", symbol),
+                "gross_margin": round(m["gross_margin"], 1),
+                "roce": round(m["roce"], 1),
+                "fcf": round(m["fcf"], 2),
+                "debt_equity": round(m["debt_equity"], 2),
+                "pegy": round(m["pegy"], 2),
+                "pe": round(m["pe"], 1)
+            })
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@trading_bp.route("/api/trading/verify_admin", methods=["POST"])
+def verify_admin():
+    data = request.get_json() or {}
+    user_password = data.get("password")
+    
+    # This comparison happens safely inside your Pi's RAM
+    if user_password and user_password == ADMIN_SECRET_TOKEN:
+        return jsonify({"valid": True})
+        
+    return jsonify({"valid": False}), 401
 
 # ── backtest engine integration ───────────────────────────────────────────────
 
@@ -188,10 +411,21 @@ def run_backtest():
         sma_slow = int(body.get("sma_slow", 50))
         stop_ma  = int(body.get("stop_ma",  150))
 
-        # 1. Fetch market payload via context constraints
-        p, i = PERIOD_MAP.get(period, ("2y", "1d"))
-        t    = yf.Ticker(symbol)
-        df   = t.history(period=p, interval=i)
+        # Check local data folder for historical prices to drastically speed up execution
+        history_file = os.path.join(DATA_DIR, f"{symbol}_history.csv")
+        if os.path.exists(history_file):
+            df = pd.read_csv(history_file, index_col=0, parse_dates=True)
+            if not df.empty:
+                today = datetime.now()
+                # Local slicing to match standard timeframe behavior
+                days_map = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "2Y": 730, "5Y": 1825}
+                if period in days_map:
+                    start_date = today - pd.Timedelta(days=days_map[period])
+                    df = df[df.index >= pd.to_datetime(start_date.date())]
+        else:
+            p, i = PERIOD_MAP.get(period, ("2y", "1d"))
+            df = yf.Ticker(symbol).history(period=p, interval=i)
+            
         if df is None or df.empty:
             return jsonify({"error": "No history data"}), 404
 

@@ -194,6 +194,16 @@
   }
   .td-empty .ico { font-size: 32px; }
 
+  /* ── native screener styles ───────────────────────────────────────────── */
+  .td-range-box { margin-bottom: 12px; }
+  .td-range-hdr { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; }
+  .td-range-input { width: 100%; accent-color: var(--td-accent); background: transparent; cursor: pointer; }
+  .td-table-wrap { flex: 1; padding: 14px; overflow-y: auto; }
+  .td-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+  .td-table th { background: var(--td-surf); color: var(--td-accent); padding: 8px 12px; border-bottom: 1px solid var(--td-border); font-weight: bold; font-size: 10px; letter-spacing: .05em; }
+  .td-table td { padding: 8px 12px; border-bottom: 1px solid #1e242d; color: var(--td-text); }
+  .td-table tr:hover td { background: #1e242d; }
+
   /* scrollbar */
   #td-app * { scrollbar-width: thin; scrollbar-color: var(--td-border) transparent; }
 
@@ -208,7 +218,6 @@
 {% block content %}
 <div id="td-app">
 
-  <!-- search bar -->
   <div id="td-topbar">
     <span id="td-logo">◈ TRADING DASHBOARD</span>
     <input id="td-ticker" type="text" value="AAPL" placeholder="Ticker…"
@@ -217,13 +226,12 @@
     <span id="td-status">Enter a ticker and press Search</span>
   </div>
 
-  <!-- tabs -->
   <div id="td-tabs">
     <button class="td-tab active" onclick="tdTab('market',this)">Market Data</button>
     <button class="td-tab"        onclick="tdTab('backtest',this)">Backtest</button>
+    <button class="td-tab"        onclick="tdTab('screener',this)">Stock Screener</button>
   </div>
 
-  <!-- ══════════════════ TAB: Market Data ══════════════════ -->
   <div id="td-market" class="td-panel active">
 
     <div class="td-sidebar">
@@ -263,7 +271,6 @@
     </div>
   </div>
 
-  <!-- ══════════════════ TAB: Backtest ══════════════════ -->
   <div id="td-backtest" class="td-panel">
 
     <div class="td-bt-sidebar">
@@ -302,10 +309,102 @@
     </div>
   </div>
 
-</div><!-- #td-app -->
+  <div id="td-screener" class="td-panel">
+    
+    <div class="td-bt-sidebar">
+      <div class="td-params">
+        <h3>SCREENER CRITERIA</h3>
+        
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">Gross Margin (GM)</span>
+            <span class="td-pos" style="font-weight: bold;">&gt; <span id="lbl_gm">30</span>%</span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_gm" min="0" max="100" value="30">
+        </div>
 
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">ROCE / ROE</span>
+            <span class="td-pos" style="font-weight: bold;">&gt; <span id="lbl_roce">15</span>%</span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_roce" min="0" max="100" value="15">
+        </div>
 
-<script>
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">Free Cash Flow</span>
+            <span class="td-pos" style="font-weight: bold;">&gt; $<span id="lbl_fcf">1.0</span>B</span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_fcf" min="0" max="50" step="0.5" value="1.0">
+        </div>
+
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">Debt/Equity Ratio</span>
+            <span class="td-neg" style="font-weight: bold;">&lt; <span id="lbl_de">0.5</span></span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_de" min="0" max="3" step="0.1" value="0.5">
+        </div>
+
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">PEGY Ratio</span>
+            <span class="td-neg" style="font-weight: bold;">&lt; <span id="lbl_pegy">1.0</span></span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_pegy" min="0.1" max="5" step="0.1" value="1.0">
+        </div>
+
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">P/E Ratio</span>
+            <span class="td-neg" style="font-weight: bold;">&lt; <span id="lbl_pe">20</span></span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_pe" min="1" max="100" value="20">
+        </div>
+      </div>
+      
+      <button id="btnRunScreen" onclick="tdRunScreen()">▶  EXECUTE SEARCH</button>
+    </div>
+    <button id="admin-login-btn" class="btn btn-outline-secondary">Admin Login</button>
+    <div class="td-main">
+      <div class="td-ctrl">
+        <span class="td-ctrl-lbl">Data Setup:</span>
+        <div id="admin-screener-wrapper" style="display: none;">
+          <hr>
+          <h3>🔒 Admin Dashboard: Stock Screener</h3>
+          <button id="btnUpdateCache" class="td-pill" style="border-color: var(--td-yellow); color: var(--td-yellow);" onclick="tdUpdateCache()">
+            Sync Server Data Folder (Incremental)
+          </button>
+          </div>
+      </div>
+      
+      <div class="td-table-wrap">
+        <table class="td-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Company Name</th>
+              <th>Gross Margin</th>
+              <th>ROCE/ROE</th>
+              <th>FCF</th>
+              <th>Debt/Equity</th>
+              <th>PEGY</th>
+              <th>P/E</th>
+            </tr>
+          </thead>
+          <tbody id="screenerResultsTable">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--td-sub); padding: 40px 0;">Configure your rules and click 'Execute Search'</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div><script>
 // ── state ─────────────────────────────────────────────────────────────────
 let tdSym       = null;
 let tdPer       = '1Y';
@@ -698,6 +797,90 @@ function tdBtView(v, el){
   if(tdBData) tdDrawBt(tdBData);
 }
 
+// ── stock screener actions ────────────────────────────────────────────────
+function tdUpdateCache() {
+    // 1. Grab the saved password from sessionStorage
+    const token = sessionStorage.getItem("adminToken") || "";
+
+    const btn = document.getElementById("btnUpdateCache");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Syncing Folder... Please wait";
+    }
+
+    fetch("/api/trading/update_screener_data", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Token": token // Ensure this header matches exactly what Flask reads
+        }
+    })
+    .then(response => {
+        if (response.status === 401) {
+            alert("Error: Unauthorized. Invalid admin password.");
+            throw new Error("Unauthorized");
+        }
+        return response.json();
+    })
+    .then(data => {
+        alert("Success: " + data.message);
+    })
+    .catch(err => {
+        console.error("Sync failed:", err);
+    })
+    .finally(() => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Sync Server Data Folder (Incremental)";
+        }
+    });
+}
+
+async function tdRunScreen() {
+  const tableBody = tdEl("screenerResultsTable");
+  tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px 0; color: var(--td-accent);">Analyzing tickers...</td></tr>`;
+  
+  const payload = {
+    min_gm: parseFloat(tdEl("filter_gm").value),
+    min_roce: parseFloat(tdEl("filter_roce").value),
+    min_fcf: parseFloat(tdEl("filter_fcf").value),
+    max_debt_equity: parseFloat(tdEl("filter_de").value),
+    max_pegy: parseFloat(tdEl("filter_pegy").value),
+    max_pe: parseFloat(tdEl("filter_pe").value)
+  };
+
+  try {
+    const data = await fetch("/api/trading/screen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(r => r.json());
+
+    tableBody.innerHTML = "";
+    if (!data.results || data.results.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--td-sub); padding: 40px 0;">No tickers match the specified filters. Try loosening criteria or click sync above.</td></tr>`;
+      return;
+    }
+    data.results.forEach(row => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight: bold; color: var(--td-accent);">${row.symbol}</td>
+        <td>${row.name || '—'}</td>
+        <td>${row.gross_margin}%</td>
+        <td>${row.roce}%</td>
+        <td>$${row.fcf}B</td>
+        <td>${row.debt_equity}</td>
+        <td>${row.pegy}</td>
+        <td>${row.pe}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--td-red); padding: 40px 0;">Failed to fetch screen configuration arrays.</td></tr>`;
+    console.error(err);
+  }
+}
+
 // ── tabs ──────────────────────────────────────────────────────────────────
 function tdTab(name, el){
   document.querySelectorAll('.td-panel').forEach(p=>p.classList.remove('active'));
@@ -705,5 +888,98 @@ function tdTab(name, el){
   tdEl('td-'+name).classList.add('active');
   el.classList.add('active');
 }
+
+// ── initialize range sliders values ───────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  const sliders = ["gm", "roce", "fcf", "de", "pegy", "pe"];
+  sliders.forEach(key => {
+    const sliderEl = tdEl(`filter_${key}`);
+    const labelEl = tdEl(`lbl_${key}`);
+    if (sliderEl && labelEl) {
+      sliderEl.addEventListener("input", function() {
+        labelEl.innerText = this.value;
+      });
+    }
+  });
+});
+
+// ── admin mode ───────────────────────────────────────
+
+function loginAsAdmin() {
+    const password = prompt("Enter Admin Password:");
+    if (!password) return;
+
+    // Send the password guess to the Pi to check securely
+    fetch("/api/trading/verify_admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: password })
+    })
+    .then(response => {
+        if (response.ok) {
+            // If the server confirms it matches the .env, save it to session
+            sessionStorage.setItem("adminToken", password);
+            alert("Admin mode activated!");
+            checkAdminStatus();
+        } else {
+            alert("Incorrect password! Access denied.");
+        }
+    })
+    .catch(err => alert("Verification failed: " + err));
+}
+
+function checkAdminStatus() {
+    const token = sessionStorage.getItem("adminToken");
+    const adminPanel = document.getElementById("admin-screener-wrapper");
+    const loginBtn = document.getElementById("admin-login-btn");
+
+    if (token) {
+        if (adminPanel) adminPanel.style.display = "block";
+        if (loginBtn) {
+            loginBtn.innerText = "✕ Exit Admin Mode";
+            loginBtn.onclick = logoutAdmin;
+            loginBtn.className = "td-admin-ctrl-btn admin-active"; // Use custom CSS
+        }
+    } else {
+        if (adminPanel) adminPanel.style.display = "none";
+        if (loginBtn) {
+            loginBtn.innerText = "🔒 Admin Login";
+            loginBtn.onclick = loginAsAdmin;
+            loginBtn.className = "td-admin-ctrl-btn"; // Use custom CSS
+        }
+    }
+}
+
+function logoutAdmin() {
+    sessionStorage.removeItem("adminToken");
+    alert("Logged out of Admin Mode.");
+    window.location.reload();
+}
+
+function triggerScreenerSync() {
+    const token = sessionStorage.getItem("adminToken") || "";
+
+    fetch("/api/trading/update_screener_data", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Token": token
+        }
+    })
+    .then(response => {
+        if (response.status === 401) {
+            alert("Error: Unauthorized. Invalid admin password.");
+            throw new Error("Unauthorized");
+        }
+        return response.json();
+    })
+    .then(data => {
+        alert("Success: " + data.message);
+    })
+    .catch(err => console.error("Sync failed:", err));
+}
+
+// Ensure this automatically runs whenever the page loads up
+document.addEventListener("DOMContentLoaded", checkAdminStatus);
 </script>
 {% endblock %}

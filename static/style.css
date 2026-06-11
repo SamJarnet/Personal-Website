@@ -146,3 +146,39 @@ a:hover {
 .intro-box:hover {
     transform: scale(1.01);
 }
+
+.td-admin-ctrl-btn {
+  background: var(--td-surf);
+  color: var(--td-sub);
+  border: 1px solid var(--td-border);
+  font-family: var(--td-font);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  border-radius: var(--td-r);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  margin: 15px auto 0 auto; /* Centers it horizontally */
+  
+  /* THIS FIXED THE WIDTH */
+  display: block;          /* Allows width constraints */
+  max-width: 130px;        /* Forces it to be small/short */
+  max-height: 80px;
+  text-align: center;      /* Centers the text inside */
+}
+
+.td-admin-ctrl-btn:hover {
+  color: var(--td-accent);
+  border-color: var(--td-accent);
+}
+
+.td-admin-ctrl-btn.admin-active {
+  color: var(--td-red);
+  border-color: rgba(248, 81, 73, 0.4);
+  max-width: 140px; /* Gives a tiny bit extra room for "Exit Admin Mode" text */
+}
+
+.td-admin-ctrl-btn.admin-active:hover {
+  border-color: var(--td-red);
+}
