@@ -1,0 +1,709 @@
+{% extends "base.html" %}
+
+{% block title %}Trading Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* ── tokens ──────────────────────────────────────────────────────────── */
+  :root {
+    --td-bg:      #0d1117;
+    --td-surf:    #161b22;
+    --td-border:  #30363d;
+    --td-accent:  #00d4aa;
+    --td-accentd: #00a884;
+    --td-text:    #e6edf3;
+    --td-sub:     #8b949e;
+    --td-green:   #3fb950;
+    --td-red:     #f85149;
+    --td-yellow:  #f7c948;
+    --td-purple:  #a371f7;
+    --td-blue:    #79c0ff;
+    --td-font:    'Courier New', Courier, monospace;
+    --td-r:       6px;
+  }
+
+  /* ── wrapper scoped so it doesn't fight your base styles ────────────── */
+  #td-app {
+    background: var(--td-bg);
+    color: var(--td-text);
+    font-family: var(--td-font);
+    font-size: 13px;
+    min-height: calc(100vh - 60px); /* adjust if your navbar height differs */
+  }
+
+  /* ── search bar ──────────────────────────────────────────────────────── */
+  #td-topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--td-surf);
+    border-bottom: 1px solid var(--td-border);
+  }
+  #td-logo { font-size: 15px; font-weight: bold; color: var(--td-accent); }
+  #td-ticker {
+    background: var(--td-bg); border: 1px solid var(--td-border);
+    color: var(--td-text); font-family: var(--td-font); font-size: 14px;
+    padding: 6px 12px; border-radius: var(--td-r); width: 130px;
+    outline: none; transition: border-color .15s;
+  }
+  #td-ticker:focus { border-color: var(--td-accent); }
+  #td-search-btn {
+    background: var(--td-accent); color: var(--td-bg); border: none;
+    font-family: var(--td-font); font-size: 12px; font-weight: bold;
+    padding: 7px 18px; border-radius: var(--td-r); cursor: pointer;
+    transition: background .15s;
+  }
+  #td-search-btn:hover    { background: var(--td-accentd); }
+  #td-search-btn:disabled { opacity: .5; cursor: default; }
+  #td-status { font-size: 11px; color: var(--td-sub); }
+
+  /* ── tab strip ───────────────────────────────────────────────────────── */
+  #td-tabs {
+    display: flex; padding: 0 20px;
+    background: var(--td-surf);
+    border-bottom: 1px solid var(--td-border);
+  }
+  .td-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--td-sub); font-family: var(--td-font); font-size: 12px;
+    font-weight: bold; padding: 10px 18px; cursor: pointer; margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+  }
+  .td-tab:hover  { color: var(--td-text); }
+  .td-tab.active { color: var(--td-accent); border-bottom-color: var(--td-accent); }
+
+  /* ── panels ──────────────────────────────────────────────────────────── */
+  .td-panel { display: none; }
+  .td-panel.active {
+    display: flex;
+    height: calc(100vh - 130px);   /* topbar + tabs + your site navbar */
+    min-height: 500px;
+  }
+
+  /* ── sidebar ─────────────────────────────────────────────────────────── */
+  .td-sidebar {
+    width: 280px; min-width: 220px;
+    background: var(--td-surf);
+    border-right: 1px solid var(--td-border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .td-co-hdr { padding: 14px 14px 10px; border-bottom: 1px solid var(--td-border); }
+  #td-co-name   { font-size: 13px; font-weight: bold; margin-bottom: 2px; }
+  #td-co-sector { font-size: 10px; color: var(--td-sub); margin-bottom: 8px; }
+  #td-co-price  { font-size: 22px; font-weight: bold; color: var(--td-accent); }
+  #td-co-chg    { font-size: 11px; margin-left: 8px; }
+
+  .td-scroll { overflow-y: auto; flex: 1; }
+  .td-scroll::-webkit-scrollbar { width: 4px; }
+  .td-scroll::-webkit-scrollbar-thumb { background: var(--td-border); border-radius: 2px; }
+
+  .td-sec-hdr {
+    background: var(--td-bg); color: var(--td-accent);
+    font-size: 9px; font-weight: bold; letter-spacing: .08em;
+    padding: 7px 12px 3px;
+  }
+  .td-stat {
+    display: flex; justify-content: space-between;
+    padding: 4px 12px; border-bottom: 1px solid #1e242d; font-size: 10px;
+  }
+  .td-stat-l { color: var(--td-sub); }
+  .td-stat-v { font-weight: bold; }
+
+  /* ── main / chart area ───────────────────────────────────────────────── */
+  .td-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  .td-ctrl {
+    display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    padding: 7px 12px; background: var(--td-surf);
+    border-bottom: 1px solid var(--td-border);
+  }
+  .td-ctrl-lbl { color: var(--td-sub); font-size: 10px; margin-right: 2px; }
+  .td-sep { width: 1px; height: 18px; background: var(--td-border); margin: 0 5px; }
+
+  .td-pill {
+    background: none; border: 1px solid var(--td-border); color: var(--td-sub);
+    font-family: var(--td-font); font-size: 10px; font-weight: bold;
+    padding: 3px 9px; border-radius: 20px; cursor: pointer; transition: all .15s;
+  }
+  .td-pill:hover  { color: var(--td-text); border-color: var(--td-text); }
+  .td-pill.active { color: var(--td-bg); background: var(--td-accent); border-color: var(--td-accent); }
+
+  .td-chart-wrap { flex: 1; padding: 10px 14px; min-height: 0; position: relative; }
+  .td-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+  /* ── backtest sidebar ─────────────────────────────────────────────────── */
+  .td-bt-sidebar {
+    width: 260px; min-width: 220px;
+    background: var(--td-surf);
+    border-right: 1px solid var(--td-border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .td-params { padding: 12px; border-bottom: 1px solid var(--td-border); }
+  .td-params h3 {
+    font-size: 9px; font-weight: bold; color: var(--td-accent);
+    letter-spacing: .08em; margin-bottom: 10px;
+  }
+  .td-prow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+  .td-prow label { font-size: 10px; color: var(--td-sub); }
+  .td-prow input, .td-prow select {
+    background: var(--td-bg); border: 1px solid var(--td-border);
+    color: var(--td-text); font-family: var(--td-font); font-size: 11px;
+    padding: 3px 8px; border-radius: var(--td-r); width: 85px; text-align: right;
+    outline: none; transition: border-color .15s;
+  }
+  .td-prow input:focus, .td-prow select:focus { border-color: var(--td-accent); }
+  #td-bt-run {
+    margin: 0 12px 12px; background: var(--td-accent); color: var(--td-bg);
+    border: none; font-family: var(--td-font); font-size: 11px; font-weight: bold;
+    padding: 8px; border-radius: var(--td-r); cursor: pointer; width: calc(100% - 24px);
+    transition: background .15s;
+  }
+  #td-bt-run:hover    { background: var(--td-accentd); }
+  #td-bt-run:disabled { opacity: .5; cursor: default; }
+
+  .td-res-scroll { overflow-y: auto; flex: 1; }
+  .td-res-hdr {
+    font-size: 9px; font-weight: bold; color: var(--td-accent);
+    letter-spacing: .08em; padding: 7px 12px 3px; background: var(--td-bg);
+  }
+  .td-res-row { display: flex; justify-content: space-between; padding: 4px 12px;
+                border-bottom: 1px solid #1e242d; font-size: 10px; }
+  .td-res-l { color: var(--td-sub); }
+  .td-res-v { font-weight: bold; }
+  .td-res-sep { height: 1px; background: var(--td-border); margin: 3px 12px; }
+  .td-pos { color: var(--td-green); } .td-neg { color: var(--td-red); }
+
+  .td-trade-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    padding: 3px 12px; font-size: 9px; border-bottom: 1px solid #1e242d;
+  }
+  .td-trade-row.hdr { color: var(--td-sub); font-weight: bold; }
+
+  /* ── loading / empty ──────────────────────────────────────────────────── */
+  .td-loading {
+    position: absolute; inset: 0; background: rgba(13,17,23,.7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--td-accent); letter-spacing: .1em;
+    pointer-events: none; opacity: 0; transition: opacity .2s;
+  }
+  .td-loading.show { opacity: 1; pointer-events: all; }
+  .td-empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%;
+    color: var(--td-sub); gap: 8px; font-size: 12px;
+  }
+  .td-empty .ico { font-size: 32px; }
+
+  /* scrollbar */
+  #td-app * { scrollbar-width: thin; scrollbar-color: var(--td-border) transparent; }
+
+  /* responsive: collapse sidebar on small screens */
+  @media (max-width: 700px) {
+    .td-sidebar, .td-bt-sidebar { width: 200px; min-width: 180px; }
+    #td-co-price { font-size: 18px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="td-app">
+
+  <!-- search bar -->
+  <div id="td-topbar">
+    <span id="td-logo">◈ TRADING DASHBOARD</span>
+    <input id="td-ticker" type="text" value="AAPL" placeholder="Ticker…"
+           autocomplete="off" onkeydown="if(event.key==='Enter')tdSearch()"/>
+    <button id="td-search-btn" onclick="tdSearch()">SEARCH</button>
+    <span id="td-status">Enter a ticker and press Search</span>
+  </div>
+
+  <!-- tabs -->
+  <div id="td-tabs">
+    <button class="td-tab active" onclick="tdTab('market',this)">Market Data</button>
+    <button class="td-tab"        onclick="tdTab('backtest',this)">Backtest</button>
+  </div>
+
+  <!-- ══════════════════ TAB: Market Data ══════════════════ -->
+  <div id="td-market" class="td-panel active">
+
+    <div class="td-sidebar">
+      <div class="td-co-hdr">
+        <div id="td-co-name">—</div>
+        <div id="td-co-sector"></div>
+        <span id="td-co-price">—</span><span id="td-co-chg"></span>
+      </div>
+      <div class="td-scroll" id="td-stats">
+        <div class="td-empty"><span class="ico">📊</span><span>Load a ticker</span></div>
+      </div>
+    </div>
+
+    <div class="td-main">
+      <div class="td-ctrl">
+        <span class="td-ctrl-lbl">Chart:</span>
+        <button class="td-pill active" onclick="tdChartType('price',this)">Price</button>
+        <button class="td-pill"        onclick="tdChartType('returns',this)">Returns</button>
+        <button class="td-pill"        onclick="tdChartType('volume',this)">Volume</button>
+        <button class="td-pill"        onclick="tdChartType('ma',this)">Moving Avgs</button>
+        <div class="td-sep"></div>
+        <span class="td-ctrl-lbl">Period:</span>
+        <button class="td-pill"        onclick="tdPeriod('1W',this)">1W</button>
+        <button class="td-pill"        onclick="tdPeriod('1M',this)">1M</button>
+        <button class="td-pill"        onclick="tdPeriod('3M',this)">3M</button>
+        <button class="td-pill"        onclick="tdPeriod('6M',this)">6M</button>
+        <button class="td-pill active" onclick="tdPeriod('1Y',this)">1Y</button>
+        <button class="td-pill"        onclick="tdPeriod('2Y',this)">2Y</button>
+        <button class="td-pill"        onclick="tdPeriod('5Y',this)">5Y</button>
+        <button class="td-pill"        onclick="tdPeriod('All',this)">All</button>
+      </div>
+      <div class="td-chart-wrap" id="td-mwrap">
+        <div class="td-empty" id="td-mempty"><span class="ico">📈</span><span>Search for a ticker</span></div>
+        <canvas id="td-mchart" style="display:none"></canvas>
+        <div class="td-loading" id="td-mload">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ TAB: Backtest ══════════════════ -->
+  <div id="td-backtest" class="td-panel">
+
+    <div class="td-bt-sidebar">
+      <div class="td-params">
+        <h3>STRATEGY PARAMETERS</h3>
+        <div class="td-prow"><label>Capital ($)</label><input id="p-cap"    value="10000"/></div>
+        <div class="td-prow"><label>Fast SMA</label>   <input id="p-fast"   value="20"/></div>
+        <div class="td-prow"><label>Slow SMA</label>   <input id="p-slow"   value="50"/></div>
+        <div class="td-prow"><label>Stop-Loss MA</label><input id="p-stop"  value="150"/></div>
+        <div class="td-prow">
+          <label>Period</label>
+          <select id="p-period">
+            <option>1Y</option><option selected>2Y</option>
+            <option>5Y</option><option>All</option>
+          </select>
+        </div>
+      </div>
+      <button id="td-bt-run" onclick="tdRunBacktest()">▶  RUN BACKTEST</button>
+      <div class="td-res-scroll" id="td-bt-res">
+        <div class="td-empty" style="padding:16px 0"><span class="ico">⚙️</span><span>Configure and run</span></div>
+      </div>
+    </div>
+
+    <div class="td-main">
+      <div class="td-ctrl">
+        <span class="td-ctrl-lbl">View:</span>
+        <button class="td-pill active" onclick="tdBtView('strategy',this)">Strategy</button>
+        <button class="td-pill"        onclick="tdBtView('equity',this)">Equity Curve</button>
+        <button class="td-pill"        onclick="tdBtView('drawdown',this)">Drawdown</button>
+      </div>
+      <div class="td-chart-wrap" id="td-bwrap">
+        <div class="td-empty" id="td-bempty"><span class="ico">🤖</span><span>Run a backtest to see results</span></div>
+        <canvas id="td-bchart" style="display:none"></canvas>
+        <div class="td-loading" id="td-bload">Running…</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #td-app -->
+
+
+<script>
+// ── state ─────────────────────────────────────────────────────────────────
+let tdSym       = null;
+let tdPer       = '1Y';
+let tdCType     = 'price';
+let tdHCache    = {};
+let tdMChart    = null;
+let tdBChart    = null;
+let tdBData     = null;
+let tdBView     = 'strategy';
+
+// ── Chart.js defaults ─────────────────────────────────────────────────────
+Chart.defaults.color          = '#8b949e';
+Chart.defaults.font.family    = "'Courier New', monospace";
+Chart.defaults.font.size      = 10;
+
+// ── colour tokens ─────────────────────────────────────────────────────────
+const TC = {
+  bg:'#0d1117', surf:'#161b22', border:'#30363d',
+  accent:'#00d4aa', text:'#e6edf3', sub:'#8b949e',
+  green:'#3fb950', red:'#f85149',
+  yellow:'#f7c948', purple:'#a371f7', blue:'#79c0ff',
+};
+
+// ── formatters ────────────────────────────────────────────────────────────
+const TF = {
+  price: v => v==null ? '—' : '$'+Number(v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}),
+  large: v => {
+    if(v==null) return '—';
+    const a=Math.abs(v);
+    if(a>=1e12) return '$'+(v/1e12).toFixed(2)+'T';
+    if(a>=1e9)  return '$'+(v/1e9 ).toFixed(2)+'B';
+    if(a>=1e6)  return '$'+(v/1e6 ).toFixed(2)+'M';
+    return '$'+v.toLocaleString();
+  },
+  pct:   v => v==null ? '—' : (v*100).toFixed(2)+'%',
+  ratio: (v,d=2) => v==null ? '—' : Number(v).toFixed(d),
+};
+
+const PRICE_K = new Set(['currentPrice','previousClose','open','dayLow','dayHigh',
+  'fiftyTwoWeekLow','fiftyTwoWeekHigh','targetMeanPrice','targetHighPrice',
+  'targetLowPrice','bookValue','dividendRate','trailingEps','forwardEps']);
+const LARGE_K = new Set(['freeCashflow','operatingCashflow','totalRevenue','grossProfits',
+  'ebitda','netIncomeToCommon','marketCap','enterpriseValue','totalCash','totalDebt',
+  'sharesOutstanding','floatShares']);
+const PCT_K   = new Set(['dividendYield','payoutRatio','grossMargins','operatingMargins',
+  'profitMargins','returnOnEquity','returnOnAssets','revenueGrowth','earningsGrowth',
+  'heldPercentInsiders','heldPercentInstitutions']);
+
+function tfmt(k,v){
+  if(PRICE_K.has(k)) return TF.price(v);
+  if(LARGE_K.has(k)) return TF.large(v);
+  if(PCT_K.has(k))   return TF.pct(v);
+  return TF.ratio(v);
+}
+
+// ── Chart helper (NO time axis — plain category labels) ────────────────────
+function tdBaseChart(labels, datasets, yLabel='') {
+  // thin out labels so x-axis isn't crowded
+  const step = Math.max(1, Math.floor(labels.length / 8));
+  const sparseLabels = labels.map((l,i) => i % step === 0 ? l.slice(0,7) : '');
+
+  return {
+    type: 'line',
+    data: { labels: sparseLabels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 250 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: TC.text, boxWidth: 10, padding: 14,
+                             font:{family:"'Courier New',monospace",size:10} } },
+        tooltip: {
+          backgroundColor: TC.surf, borderColor: TC.border, borderWidth:1,
+          titleColor: TC.sub, bodyColor: TC.text,
+          callbacks: {
+            title: items => labels[items[0].dataIndex] || '',
+            label: ctx  => ` ${ctx.dataset.label}: ${ctx.parsed.y!=null ? ctx.parsed.y.toFixed(2) : '—'}`,
+          }
+        }
+      },
+      scales: {
+        x: { grid:{color:TC.border+'33'}, ticks:{color:TC.sub, maxRotation:0},
+             border:{color:TC.border} },
+        y: { grid:{color:TC.border+'33'}, ticks:{color:TC.sub},
+             title:{ display:!!yLabel, text:yLabel, color:TC.sub },
+             border:{color:TC.border} }
+      }
+    }
+  };
+}
+
+function tdDestroy(c){ if(c){ c.destroy(); return null; } return null; }
+function tdEl(id)    { return document.getElementById(id); }
+function tdLoading(id,show){ tdEl(id).classList.toggle('show',show); }
+
+// ── search ────────────────────────────────────────────────────────────────
+async function tdSearch() {
+  const sym = tdEl('td-ticker').value.trim().toUpperCase();
+  if(!sym) return;
+  tdSym = sym;
+  tdHCache = {};
+  tdEl('td-status').textContent = 'Loading…';
+  tdEl('td-status').style.color = TC.sub;
+  tdEl('td-search-btn').disabled = true;
+
+  try {
+    const q = await fetch(`/api/trading/quote/${sym}`).then(r=>{ if(!r.ok) throw new Error('Not found'); return r.json(); });
+    tdRenderQuote(q);
+    await tdFetchHistory(sym, tdPer);
+    tdEl('td-status').textContent = 'Updated '+new Date().toLocaleTimeString();
+  } catch(e) {
+    tdEl('td-status').textContent = 'Error: '+e.message;
+    tdEl('td-status').style.color = TC.red;
+  }
+  tdEl('td-search-btn').disabled = false;
+}
+
+function tdRenderQuote(q) {
+  tdEl('td-co-name').textContent   = q.longName || q.shortName || q.symbol || '—';
+  tdEl('td-co-sector').textContent = [q.sector,q.industry].filter(Boolean).join(' · ');
+  tdEl('td-co-price').textContent  = TF.price(q.currentPrice);
+
+  const price = q.currentPrice, prev = q.previousClose;
+  if(price!=null && prev!=null){
+    const chg = price-prev, pct = chg/prev*100;
+    const el  = tdEl('td-co-chg');
+    el.textContent = (chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+' ('+Math.abs(pct).toFixed(2)+'%)';
+    el.style.color = chg>=0 ? TC.green : TC.red;
+  }
+
+  const sections = [
+    ['Price Info',[['currentPrice','Price'],['previousClose','Prev Close'],['open','Open'],
+      ['dayLow','Day Low'],['dayHigh','Day High'],['fiftyTwoWeekLow','52W Low'],['fiftyTwoWeekHigh','52W High']]],
+    ['Valuation',[['trailingPE','P/E (TTM)'],['forwardPE','P/E (Fwd)'],['priceToBook','P/B'],
+      ['priceToSalesTrailing12Months','P/S'],['enterpriseToEbitda','EV/EBITDA'],
+      ['marketCap','Mkt Cap'],['enterpriseValue','EV']]],
+    ['Cash Flow & Earnings',[['freeCashflow','Free Cash Flow'],['operatingCashflow','Op CF'],
+      ['totalRevenue','Revenue'],['grossProfits','Gross Profit'],['ebitda','EBITDA'],
+      ['netIncomeToCommon','Net Income'],['trailingEps','EPS (TTM)'],['forwardEps','EPS (Fwd)']]],
+    ['Growth & Margins',[['revenueGrowth','Rev Growth'],['earningsGrowth','EPS Growth'],
+      ['grossMargins','Gross Margin'],['operatingMargins','Op Margin'],['profitMargins','Net Margin'],
+      ['returnOnEquity','ROE'],['returnOnAssets','ROA']]],
+    ['Balance Sheet',[['totalCash','Cash'],['totalDebt','Debt'],['debtToEquity','Debt/Eq'],
+      ['currentRatio','Current Ratio'],['quickRatio','Quick Ratio'],['bookValue','Book Val/Sh']]],
+    ['Dividends & Shares',[['dividendYield','Div Yield'],['dividendRate','Div Rate'],
+      ['payoutRatio','Payout'],['sharesOutstanding','Shares Out'],
+      ['heldPercentInsiders','Insider%'],['heldPercentInstitutions','Inst%'],['shortRatio','Short Ratio']]],
+    ['Analyst',[['targetMeanPrice','Mean Target'],['targetHighPrice','High Target'],
+      ['targetLowPrice','Low Target'],['recommendationMean','Rec Score'],
+      ['numberOfAnalystOpinions','# Analysts']]],
+  ];
+
+  const cont = tdEl('td-stats'); cont.innerHTML='';
+  for(const [title,rows] of sections){
+    const h=document.createElement('div'); h.className='td-sec-hdr'; h.textContent=title; cont.appendChild(h);
+    for(const [key,label] of rows){
+      const d=document.createElement('div'); d.className='td-stat';
+      const v=q[key];
+      d.innerHTML=`<span class="td-stat-l">${label}</span><span class="td-stat-v">${v!=null?tfmt(key,v):'—'}</span>`;
+      cont.appendChild(d);
+    }
+  }
+}
+
+// ── market chart ──────────────────────────────────────────────────────────
+async function tdFetchHistory(sym, period) {
+  if(tdHCache[period]){ tdDrawMarket(tdHCache[period]); return; }
+  tdLoading('td-mload',true);
+  try {
+    const d = await fetch(`/api/trading/history/${sym}?period=${period}`).then(r=>r.json());
+    if(d.error) throw new Error(d.error);
+    tdHCache[period] = d;
+    tdDrawMarket(d);
+  } catch(e) { console.error(e); }
+  tdLoading('td-mload',false);
+}
+
+function tdDrawMarket(data) {
+  const close = data.close;
+  if(!close || !close.labels || close.labels.length===0) return;
+
+  tdEl('td-mempty').style.display = 'none';
+  tdEl('td-mchart').style.display = 'block';
+  tdMChart = tdDestroy(tdMChart);
+
+  const labels = close.labels;
+  const vals   = close.values;
+  const color  = vals[vals.length-1] >= vals[0] ? TC.green : TC.red;
+  const ct = tdCType;
+  let cfg;
+
+  if(ct==='price'){
+    cfg = tdBaseChart(labels,[{
+      label:'Close', data:vals,
+      borderColor:color, backgroundColor:color+'18',
+      borderWidth:1.5, pointRadius:0, fill:true, tension:0.1,
+    }],'Price ($)');
+
+  } else if(ct==='returns'){
+    const rets=vals.map((v,i)=>i===0?0:((v-vals[i-1])/vals[i-1]*100));
+    cfg = tdBaseChart(labels,[{
+      type:'bar', label:'Daily Return %', data:rets,
+      backgroundColor:rets.map(v=>v>=0?TC.green+'bb':TC.red+'bb'), borderWidth:0,
+    }],'Return (%)');
+    cfg.type='bar';
+
+  } else if(ct==='volume'){
+    const vl=data.volume;
+    const vv=(vl&&vl.values)||[];
+    const vc=vv.map((_,i)=>!i||vals[i]>=vals[i-1]?TC.green+'aa':TC.red+'aa');
+    cfg = tdBaseChart(labels,[{
+      type:'bar', label:'Volume (M)', data:vv.map(v=>v/1e6),
+      backgroundColor:vc, borderWidth:0,
+    }],'Volume (M)');
+    cfg.type='bar';
+
+  } else { // ma
+    const ma=(w)=>{
+      const out=[];
+      for(let i=0;i<vals.length;i++) out.push(i<w-1?null:vals.slice(i-w+1,i+1).reduce((s,v)=>s+v,0)/w);
+      return out;
+    };
+    cfg = tdBaseChart(labels,[
+      {label:'Price',data:vals,borderColor:color+'88',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:0.1},
+      {label:'MA20', data:ma(20), borderColor:TC.yellow,backgroundColor:'transparent',borderWidth:1.4,pointRadius:0,tension:0.1},
+      {label:'MA50', data:ma(50), borderColor:TC.purple,backgroundColor:'transparent',borderWidth:1.6,pointRadius:0,tension:0.1},
+      ...(vals.length>=200?[{label:'MA200',data:ma(200),borderColor:TC.blue,backgroundColor:'transparent',borderWidth:1.8,pointRadius:0,tension:0.1}]:[]),
+    ],'Price ($)');
+  }
+
+  tdMChart = new Chart(tdEl('td-mchart').getContext('2d'), cfg);
+}
+
+function tdChartType(type, el) {
+  tdCType = type;
+  tdEl('td-market').querySelectorAll('.td-ctrl .td-pill').forEach(b=>{
+    if(['price','returns','volume','ma'].some(t=>b.getAttribute('onclick')?.includes(t))) b.classList.remove('active');
+  });
+  el.classList.add('active');
+  if(tdSym && tdHCache[tdPer]) tdDrawMarket(tdHCache[tdPer]);
+}
+
+function tdPeriod(p, el) {
+  tdPer = p;
+  tdEl('td-market').querySelectorAll('.td-ctrl .td-pill').forEach(b=>{
+    if(['1W','1M','3M','6M','1Y','2Y','5Y','All'].some(t=>b.getAttribute('onclick')?.includes(`'${t}'`))) b.classList.remove('active');
+  });
+  el.classList.add('active');
+  if(tdSym) tdFetchHistory(tdSym, p);
+}
+
+// ── backtest ──────────────────────────────────────────────────────────────
+async function tdRunBacktest() {
+  if(!tdSym){ alert('Search for a ticker first.'); return; }
+  const btn = tdEl('td-bt-run');
+  btn.disabled=true; btn.textContent='Running…';
+  tdLoading('td-bload',true);
+
+  try {
+    const body = {
+      symbol:   tdSym,
+      period:   tdEl('p-period').value,
+      capital:  +tdEl('p-cap').value,
+      sma_fast: +tdEl('p-fast').value,
+      sma_slow: +tdEl('p-slow').value,
+      stop_ma:  +tdEl('p-stop').value,
+    };
+    const r = await fetch('/api/trading/backtest',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    if(!r.ok) throw new Error((await r.json()).error || 'Error');
+    tdBData = await r.json();
+    tdRenderBtResults(tdBData, body);
+    tdDrawBt(tdBData);
+    tdEl('td-bempty').style.display='none';
+    tdEl('td-bchart').style.display='block';
+  } catch(e){ alert('Backtest error: '+e.message); }
+
+  tdLoading('td-bload',false);
+  btn.disabled=false; btn.textContent='▶  RUN BACKTEST';
+}
+
+function tdRenderBtResults(data, params) {
+  const s=data.stats, cont=tdEl('td-bt-res');
+  cont.innerHTML='';
+
+  const addHdr=t=>{const d=document.createElement('div');d.className='td-res-hdr';d.textContent=t;cont.appendChild(d);};
+  const addRow=(l,v,cls='')=>{const d=document.createElement('div');d.className='td-res-row';
+    d.innerHTML=`<span class="td-res-l">${l}</span><span class="td-res-v ${cls}">${v}</span>`;cont.appendChild(d);};
+  const sep=()=>{const d=document.createElement('div');d.className='td-res-sep';cont.appendChild(d);};
+
+  addHdr('TRADE STATS');
+  addRow('Total Trades', s.total_trades);
+  addRow('Win Rate',     s.win_rate+'%',    s.win_rate>50?'td-pos':'td-neg');
+  addRow('Avg Win',      TF.price(s.avg_win),  'td-pos');
+  addRow('Avg Loss',     TF.price(s.avg_loss), 'td-neg');
+  addRow('Profit Factor',s.profit_factor??'∞', s.profit_factor==null||s.profit_factor>=1?'td-pos':'td-neg');
+  addRow('Sharpe',       s.sharpe,              s.sharpe>=1?'td-pos':s.sharpe<0?'td-neg':'');
+  addRow('Max Drawdown', s.max_drawdown+'%',    'td-neg');
+  sep();
+  addHdr('ALGORITHM');
+  addRow('Start',        TF.price(params.capital));
+  addRow('Final Value',  TF.price(s.algo_final));
+  addRow('Total Return', s.algo_return+'%',  s.algo_return>=0?'td-pos':'td-neg');
+  addRow('CAGR',         s.algo_cagr+'%',    s.algo_cagr>=0?'td-pos':'td-neg');
+  sep();
+  addHdr('BUY & HOLD');
+  addRow('Final Value',  TF.price(s.bah_final));
+  addRow('Total Return', s.bah_return+'%',  s.bah_return>=0?'td-pos':'td-neg');
+  addRow('CAGR',         s.bah_cagr+'%',    s.bah_cagr>=0?'td-pos':'td-neg');
+  addRow('Algo vs B&H',  (s.vs_bah>=0?'+':'')+s.vs_bah+'%', s.vs_bah>=0?'td-pos':'td-neg');
+  sep();
+  addHdr('TRADE LOG (last 30)');
+  const hr=document.createElement('div'); hr.className='td-trade-row hdr';
+  hr.innerHTML='<span>Buy</span><span>Sell</span><span>P&L</span>'; cont.appendChild(hr);
+  for(const t of data.trades.slice(-30).reverse()){
+    const row=document.createElement('div'); row.className='td-trade-row';
+    const pnl=t.pnl>=0?`<span class="td-pos">+${TF.price(t.pnl)}</span>`:`<span class="td-neg">${TF.price(t.pnl)}</span>`;
+    row.innerHTML=`<span>${t.buy_date}</span><span>${t.sell_date}</span><span>${pnl}</span>`;
+    cont.appendChild(row);
+  }
+}
+
+function tdDrawBt(data) {
+  tdBChart = tdDestroy(tdBChart);
+  const ctx = tdEl('td-bchart').getContext('2d');
+
+  if(tdBView==='strategy'){
+    const cl=data.close; const lbs=cl.labels; const clv=cl.values;
+    const color=clv[clv.length-1]>=clv[0]?TC.blue+'88':TC.red+'88';
+    const datasets=[
+      {label:'Price',data:clv,borderColor:color,backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:0.1},
+    ];
+    if(data.sma_fast.values.length){
+      // align sma_fast to full label axis (pad front with nulls)
+      const pad=lbs.length-data.sma_fast.values.length;
+      datasets.push({label:`SMA${tdEl('p-fast').value}`,
+        data:[...Array(pad).fill(null),...data.sma_fast.values],
+        borderColor:TC.yellow,backgroundColor:'transparent',borderWidth:1.4,pointRadius:0,tension:0.1});
+    }
+    if(data.sma_slow.values.length){
+      const pad=lbs.length-data.sma_slow.values.length;
+      datasets.push({label:`SMA${tdEl('p-slow').value}`,
+        data:[...Array(pad).fill(null),...data.sma_slow.values],
+        borderColor:TC.purple,backgroundColor:'transparent',borderWidth:1.6,pointRadius:0,tension:0.1});
+    }
+    if(data.stop_ma.values.length){
+      const pad=lbs.length-data.stop_ma.values.length;
+      datasets.push({label:`Stop MA${tdEl('p-stop').value}`,
+        data:[...Array(pad).fill(null),...data.stop_ma.values],
+        borderColor:TC.red,backgroundColor:'transparent',borderWidth:1.2,
+        borderDash:[4,3],pointRadius:0,tension:0.1});
+    }
+
+    // buy/sell scatter using index positions
+    const buyPts=Array(lbs.length).fill(null);
+    const sellPts=Array(lbs.length).fill(null);
+    (data.buy_markers||[]).forEach(m=>{ buyPts[m.index]=m.price; });
+    (data.sell_markers||[]).forEach(m=>{ sellPts[m.index]=m.price; });
+    datasets.push({label:'Buy', data:buyPts, type:'scatter',
+      backgroundColor:TC.green, borderColor:TC.green, pointRadius:6, pointStyle:'triangle'});
+    datasets.push({label:'Sell', data:sellPts, type:'scatter',
+      backgroundColor:TC.red, borderColor:TC.red, pointRadius:6,
+      pointStyle:'triangle', rotation:180});
+
+    tdBChart = new Chart(ctx, tdBaseChart(lbs, datasets, 'Price'));
+
+  } else if(tdBView==='equity'){
+    const eq=data.equity, bah=data.bah;
+    const cfg=tdBaseChart(eq.labels,[
+      {label:'Algorithm',data:eq.values,borderColor:TC.accent,backgroundColor:TC.accent+'10',borderWidth:2,pointRadius:0,fill:false,tension:0.1},
+      {label:'Buy & Hold',data:bah.values,borderColor:TC.sub,backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:0.1},
+    ],'Portfolio Value ($)');
+    tdBChart = new Chart(ctx, cfg);
+
+  } else {
+    const dd=data.drawdown;
+    const cfg=tdBaseChart(dd.labels,[{
+      label:'Drawdown %',data:dd.values,
+      borderColor:TC.red,backgroundColor:TC.red+'22',borderWidth:1.5,pointRadius:0,fill:true,tension:0.1,
+    }],'Drawdown (%)');
+    tdBChart = new Chart(ctx, cfg);
+  }
+}
+
+function tdBtView(v, el){
+  tdBView=v;
+  tdEl('td-backtest').querySelectorAll('.td-ctrl .td-pill').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  if(tdBData) tdDrawBt(tdBData);
+}
+
+// ── tabs ──────────────────────────────────────────────────────────────────
+function tdTab(name, el){
+  document.querySelectorAll('.td-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.td-tab').forEach(b=>b.classList.remove('active'));
+  tdEl('td-'+name).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+{% endblock %}

@@ -1,7 +1,9 @@
 from flask import Flask, render_template
+from trading_routes import trading_bp
 
 app = Flask(__name__, static_url_path='/assets')
 
+app.register_blueprint(trading_bp)
 
 @app.route("/")
 def home():
