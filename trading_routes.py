@@ -140,18 +140,29 @@ def update_ticker_data(symbol):
     # Incremental Price Data Update (Fetch only missing days)
     try:
         if os.path.exists(history_file):
-            existing_df = pd.read_csv(history_file, index_col=0, parse_dates=True)
+            existing_df = pd.read_csv(history_file, index_col=0)
             if not existing_df.empty:
+                # FIX: Force uniform timezone-naive mapping on cached data
+                existing_df.index = pd.to_datetime(existing_df.index, utc=True).tz_localize(None)
+
                 last_date = existing_df.index.max()
                 new_df = ticker.history(start=last_date.strftime("%Y-%m-%d"))
+                
                 if not new_df.empty:
+                    # FIX: Force uniform timezone-naive mapping on incoming data
+                    new_df.index = pd.to_datetime(new_df.index, utc=True).tz_localize(None)
+
                     combined_df = pd.concat([existing_df, new_df])
                     combined_df = combined_df[~combined_df.index.duplicated(keep='last')]
                     combined_df.to_csv(history_file)
             else:
-                ticker.history(period="5y").to_csv(history_file)
+                df_fresh = ticker.history(period="5y")
+                df_fresh.index = pd.to_datetime(df_fresh.index, utc=True).tz_localize(None)
+                df_fresh.to_csv(history_file)
         else:
-            ticker.history(period="5y").to_csv(history_file)
+            df_fresh = ticker.history(period="5y")
+            df_fresh.index = pd.to_datetime(df_fresh.index, utc=True).tz_localize(None)
+            df_fresh.to_csv(history_file)
     except Exception as e:
         print(f"Error updating history for {symbol}: {e}")
 
@@ -331,7 +342,6 @@ def verify_admin():
     data = request.get_json() or {}
     user_password = data.get("password")
     
-    # This comparison happens safely inside your Pi's RAM
     if user_password and user_password == ADMIN_SECRET_TOKEN:
         return jsonify({"valid": True})
         
@@ -356,13 +366,15 @@ def _calculate_performance_metrics(cap_series, bah_series, trades, capital):
     sharpe = float(dr.mean() / dr.std() * (252 ** 0.5)) if dr.std() > 0 else 0
     max_dd = float(((cap_series - run_max) / run_max).min() * 100)
 
-    wins   = [t for t in trades if t["pnl"] > 0]
-    losses = [t for t in trades if t["pnl"] <= 0]
+    # FIX: trades is a tuple structure where PnL is at index 2
+    wins   = [t for t in trades if t[2] > 0]
+    losses = [t for t in trades if t[2] <= 0]
+    
     win_rate = len(wins) / len(trades) * 100 if trades else 0
-    avg_win  = sum(t["pnl"] for t in wins)   / len(wins)   if wins   else 0
-    avg_loss = sum(t["pnl"] for t in losses) / len(losses) if losses else 0
-    pf_denom = abs(sum(t["pnl"] for t in losses))
-    pf       = abs(sum(t["pnl"] for t in wins)) / pf_denom if pf_denom else None
+    avg_win  = sum(t[2] for t in wins)   / len(wins)   if wins   else 0
+    avg_loss = sum(t[2] for t in losses) / len(losses) if losses else 0
+    pf_denom = abs(sum(t[2] for t in losses))
+    pf       = abs(sum(t[2] for t in wins)) / pf_denom if pf_denom else None
 
     return run_max, {
         "total_trades":  len(trades),
@@ -390,12 +402,18 @@ def _build_chart_markers(df, trades):
     label_index  = {l: i for i, l in enumerate(labels_all)}
     
     for tr in trades:
-        bi = label_index.get(tr["buy_date"])
-        si = label_index.get(tr["sell_date"])
+        # FIX: Extract dates and data using tuple integers
+        # tr[0] is open_trade, tr[1] is sell_trade, tr[2] is pnl
+        buy_date_str  = tr[0][1].strftime("%Y-%m-%d") if hasattr(tr[0][1], "strftime") else str(tr[0][1])
+        sell_date_str = tr[1][1].strftime("%Y-%m-%d") if hasattr(tr[1][1], "strftime") else str(tr[1][1])
+        
+        bi = label_index.get(buy_date_str)
+        si = label_index.get(sell_date_str)
+        
         if bi is not None:
-            buy_indices.append({"index": bi, "price": tr["buy_price"]})
+            buy_indices.append({"index": bi, "price": tr[0][2]}) # tr[0][2] is buy price
         if si is not None:
-            sell_indices.append({"index": si, "price": tr["sell_price"], "pnl": tr["pnl"]})
+            sell_indices.append({"index": si, "price": tr[1][2], "pnl": tr[2]}) # tr[1][2] is sell price, tr[2] is pnl
             
     return buy_indices, sell_indices
 
@@ -414,8 +432,11 @@ def run_backtest():
         # Check local data folder for historical prices to drastically speed up execution
         history_file = os.path.join(DATA_DIR, f"{symbol}_history.csv")
         if os.path.exists(history_file):
-            df = pd.read_csv(history_file, index_col=0, parse_dates=True)
+            df = pd.read_csv(history_file, index_col=0)
             if not df.empty:
+                # FIX: Force strict UTC timeline, then drop it to make it tz-naive
+                df.index = pd.to_datetime(df.index, utc=True).tz_localize(None)
+                
                 today = datetime.now()
                 # Local slicing to match standard timeframe behavior
                 days_map = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "2Y": 730, "5Y": 1825}
@@ -425,6 +446,9 @@ def run_backtest():
         else:
             p, i = PERIOD_MAP.get(period, ("2y", "1d"))
             df = yf.Ticker(symbol).history(period=p, interval=i)
+            # FIX: Sanitize live yfinance data immediately
+            if df is not None and not df.empty:
+                df.index = pd.to_datetime(df.index, utc=True).tz_localize(None)
             
         if df is None or df.empty:
             return jsonify({"error": "No history data"}), 404

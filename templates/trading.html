@@ -414,6 +414,8 @@ let tdMChart    = null;
 let tdBChart    = null;
 let tdBData     = null;
 let tdBView     = 'strategy';
+let cachedBacktestData = null; 
+let tradingChartInstance = null;
 
 // ── Chart.js defaults ─────────────────────────────────────────────────────
 Chart.defaults.color          = '#8b949e';
@@ -678,9 +680,12 @@ async function tdRunBacktest() {
     if(!r.ok) throw new Error((await r.json()).error || 'Error');
     tdBData = await r.json();
     tdRenderBtResults(tdBData, body);
-    tdDrawBt(tdBData);
+    
+    // Ensure the empty state element is hidden and canvas is visible before drawing
     tdEl('td-bempty').style.display='none';
     tdEl('td-bchart').style.display='block';
+    
+    tdDrawBt(tdBData);
   } catch(e){ alert('Backtest error: '+e.message); }
 
   tdLoading('td-bload',false);
@@ -722,8 +727,8 @@ function tdRenderBtResults(data, params) {
   hr.innerHTML='<span>Buy</span><span>Sell</span><span>P&L</span>'; cont.appendChild(hr);
   for(const t of data.trades.slice(-30).reverse()){
     const row=document.createElement('div'); row.className='td-trade-row';
-    const pnl=t.pnl>=0?`<span class="td-pos">+${TF.price(t.pnl)}</span>`:`<span class="td-neg">${TF.price(t.pnl)}</span>`;
-    row.innerHTML=`<span>${t.buy_date}</span><span>${t.sell_date}</span><span>${pnl}</span>`;
+    const pnl=t[2]>=0?`<span class="td-pos">+${TF.price(t[2])}</span>`:`<span class="td-neg">${TF.price(t[2])}</span>`;
+    row.innerHTML=`<span>${t[0][1]}</span><span>${t[1][1]}</span><span>${pnl}</span>`;
     cont.appendChild(row);
   }
 }
@@ -739,7 +744,6 @@ function tdDrawBt(data) {
       {label:'Price',data:clv,borderColor:color,backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:0.1},
     ];
     if(data.sma_fast.values.length){
-      // align sma_fast to full label axis (pad front with nulls)
       const pad=lbs.length-data.sma_fast.values.length;
       datasets.push({label:`SMA${tdEl('p-fast').value}`,
         data:[...Array(pad).fill(null),...data.sma_fast.values],
@@ -759,7 +763,6 @@ function tdDrawBt(data) {
         borderDash:[4,3],pointRadius:0,tension:0.1});
     }
 
-    // buy/sell scatter using index positions
     const buyPts=Array(lbs.length).fill(null);
     const sellPts=Array(lbs.length).fill(null);
     (data.buy_markers||[]).forEach(m=>{ buyPts[m.index]=m.price; });
@@ -794,7 +797,13 @@ function tdBtView(v, el){
   tdBView=v;
   tdEl('td-backtest').querySelectorAll('.td-ctrl .td-pill').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  if(tdBData) tdDrawBt(tdBData);
+  
+  if(tdBData) {
+    // Keep elements visible while redrawing tabs natively from cache
+    tdEl('td-bempty').style.display='none';
+    tdEl('td-bchart').style.display='block';
+    tdDrawBt(tdBData);
+  }
 }
 
 // ── stock screener actions ────────────────────────────────────────────────
