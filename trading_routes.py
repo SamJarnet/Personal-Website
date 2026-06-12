@@ -222,6 +222,10 @@ def compute_metrics(info, financials=None, balance_sheet=None):
         roce = roe * 100 if roe is not None else None
         
     metrics["roce"] = roce
+
+    # 7. Dividend Yield
+    metrics["dividend_yield"] = dy * 100 if dy is not None else None
+
     return metrics
 
 
@@ -299,6 +303,14 @@ def screen_tickers():
         max_pegy = float(body.get("max_pegy", 1.0))
         max_pe = float(body.get("max_pe", 20))
         
+        # New Scoring & Rating inputs
+        min_rating = int(body.get("min_rating", 4))
+        wiggle_room = float(body.get("wiggle_room", 0))  # Provided as percentage (e.g., 5 means 5%)
+        
+        # Compute modifiers based on wiggle room percentage
+        w_lower = 1.0 - (wiggle_room / 100.0)
+        w_upper = 1.0 + (wiggle_room / 100.0)
+
         tickers = get_ticker_list()
         results = []
         
@@ -316,23 +328,34 @@ def screen_tickers():
             
             m = compute_metrics(info, fin_df, bs_df)
             
-            if m["gross_margin"] is None or m["gross_margin"] < min_gm: continue
-            if m["roce"] is None or m["roce"] < min_roce: continue
-            if m["fcf"] is None or m["fcf"] < min_fcf: continue
-            if m["debt_equity"] is None or m["debt_equity"] > max_debt_equity: continue
-            if m["pegy"] is None or m["pegy"] > max_pegy: continue
-            if m["pe"] is None or m["pe"] > max_pe: continue
+            # Evaluate the 6 distinct analytical criteria using wiggle room factors
+            score = 0
+            if m["gross_margin"] is not None and m["gross_margin"] >= (min_gm * w_lower): score += 1
+            if m["roce"] is not None and m["roce"] >= (min_roce * w_lower): score += 1
+            if m["fcf"] is not None and m["fcf"] >= (min_fcf * w_lower): score += 1
+            if m["debt_equity"] is not None and m["debt_equity"] <= (max_debt_equity * w_upper): score += 1
+            if m["pegy"] is not None and m["pegy"] <= (max_pegy * w_upper): score += 1
+            if m["pe"] is not None and m["pe"] <= (max_pe * w_upper): score += 1
+            
+            # Filter matches based on user's minimum rating selection
+            if score < min_rating: 
+                continue
             
             results.append({
                 "symbol": symbol,
                 "name": info.get("longName", symbol),
-                "gross_margin": round(m["gross_margin"], 1),
-                "roce": round(m["roce"], 1),
-                "fcf": round(m["fcf"], 2),
-                "debt_equity": round(m["debt_equity"], 2),
-                "pegy": round(m["pegy"], 2),
-                "pe": round(m["pe"], 1)
+                "rating": f"{score}/6",
+                "gross_margin": round(m["gross_margin"], 1) if m["gross_margin"] is not None else "—",
+                "roce": round(m["roce"], 1) if m["roce"] is not None else "—",
+                "fcf": round(m["fcf"], 2) if m["fcf"] is not None else "—",
+                "debt_equity": round(m["debt_equity"], 2) if m["debt_equity"] is not None else "—",
+                "pegy": round(m["pegy"], 2) if m["pegy"] is not None else "—",
+                "pe": round(m["pe"], 1) if m["pe"] is not None else "—",
+                "dividend_yield": round(m["dividend_yield"], 2) if m["dividend_yield"] is not None else "—"
             })
+            
+        # Sort results by higher scoring setups first
+        results.sort(key=lambda x: int(x["rating"].split('/')[0]), reverse=True)
         return jsonify({"results": results})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

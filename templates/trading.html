@@ -10,8 +10,8 @@
     --td-bg:      #0d1117;
     --td-surf:    #161b22;
     --td-border:  #30363d;
-    --td-accent:  #00d4aa;
-    --td-accentd: #00a884;
+    --td-accent:  #3971a5;
+    --td-accentd: #3b8ad4;
     --td-text:    #e6edf3;
     --td-sub:     #8b949e;
     --td-green:   #3fb950;
@@ -313,7 +313,25 @@
     
     <div class="td-bt-sidebar">
       <div class="td-params">
-        <h3>SCREENER CRITERIA</h3>
+        <h3>RATING FILTERS</h3>
+
+        <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 12px; margin-bottom: 14px;">
+          <div class="td-range-hdr">
+            <span class="td-stat-l" style="color: var(--td-accent); font-weight: bold;">Minimum Rating Filter</span>
+            <span class="td-pos" style="font-weight: bold;"><span id="lbl_rating">4</span>/6 Metrics</span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_rating" min="0" max="6" step="1" value="4">
+        </div>
+
+        <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 12px; margin-bottom: 14px;">
+          <div class="td-range-hdr">
+            <span class="td-stat-l" style="color: var(--td-yellow); font-weight: bold;">Wiggle Room Tolerance</span>
+            <span style="color: var(--td-yellow); font-weight: bold;"><span id="lbl_wiggle">0</span>%</span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_wiggle" min="0" max="25" step="1" value="0">
+        </div>
+
+        <h3>CRITERIA TARGETS</h3>
         
         <div class="td-range-box">
           <div class="td-range-hdr">
@@ -385,17 +403,17 @@
             <tr>
               <th>Ticker</th>
               <th>Company Name</th>
-              <th>Gross Margin</th>
+              <th>Rating</th> <th>Gross Margin</th>
               <th>ROCE/ROE</th>
               <th>FCF</th>
               <th>Debt/Equity</th>
               <th>PEGY</th>
               <th>P/E</th>
-            </tr>
+              <th>Div Yield</th> </tr>
           </thead>
           <tbody id="screenerResultsTable">
             <tr>
-              <td colspan="8" style="text-align: center; color: var(--td-sub); padding: 40px 0;">Configure your rules and click 'Execute Search'</td>
+              <td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0;">Configure your rules and click 'Execute Search'</td>
             </tr>
           </tbody>
         </table>
@@ -847,7 +865,7 @@ function tdUpdateCache() {
 
 async function tdRunScreen() {
   const tableBody = tdEl("screenerResultsTable");
-  tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px 0; color: var(--td-accent);">Analyzing tickers...</td></tr>`;
+  tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px 0; color: var(--td-accent);">Analyzing tickers...</td></tr>`;
   
   const payload = {
     min_gm: parseFloat(tdEl("filter_gm").value),
@@ -855,7 +873,9 @@ async function tdRunScreen() {
     min_fcf: parseFloat(tdEl("filter_fcf").value),
     max_debt_equity: parseFloat(tdEl("filter_de").value),
     max_pegy: parseFloat(tdEl("filter_pegy").value),
-    max_pe: parseFloat(tdEl("filter_pe").value)
+    max_pe: parseFloat(tdEl("filter_pe").value),
+    min_rating: parseInt(tdEl("filter_rating").value),   // Pass rating filter threshold
+    wiggle_room: parseFloat(tdEl("filter_wiggle").value) // Pass wiggle room multiplier
   };
 
   try {
@@ -867,25 +887,34 @@ async function tdRunScreen() {
 
     tableBody.innerHTML = "";
     if (!data.results || data.results.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--td-sub); padding: 40px 0;">No tickers match the specified filters. Try loosening criteria or click sync above.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0;">No tickers match the specified filters. Try loosening criteria or click sync above.</td></tr>`;
       return;
     }
     data.results.forEach(row => {
       const tr = document.createElement("tr");
+      
+      // Sanitize fields dynamically to prevent leaking raw "—%" character combinations
+      const gmDisp = row.gross_margin === "—" ? "—" : row.gross_margin + "%";
+      const roceDisp = row.roce === "—" ? "—" : row.roce + "%";
+      const fcfDisp = row.fcf === "—" ? "—" : "$" + row.fcf + "B";
+      const divDisp = row.dividend_yield === "—" ? "—" : row.dividend_yield + "%";
+
       tr.innerHTML = `
         <td style="font-weight: bold; color: var(--td-accent);">${row.symbol}</td>
         <td>${row.name || '—'}</td>
-        <td>${row.gross_margin}%</td>
-        <td>${row.roce}%</td>
-        <td>$${row.fcf}B</td>
+        <td style="font-weight: bold; color: var(--td-yellow); text-align: center;">${row.rating}</td>
+        <td>${gmDisp}</td>
+        <td>${roceDisp}</td>
+        <td>${fcfDisp}</td>
         <td>${row.debt_equity}</td>
         <td>${row.pegy}</td>
         <td>${row.pe}</td>
+        <td style="color: var(--td-blue); font-weight: bold;">${divDisp}</td>
       `;
       tableBody.appendChild(tr);
     });
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--td-red); padding: 40px 0;">Failed to fetch screen configuration arrays.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-red); padding: 40px 0;">Failed to fetch screen configuration arrays.</td></tr>`;
     console.error(err);
   }
 }
@@ -900,7 +929,7 @@ function tdTab(name, el){
 
 // ── initialize range sliders values ───────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  const sliders = ["gm", "roce", "fcf", "de", "pegy", "pe"];
+  const sliders = ["gm", "roce", "fcf", "de", "pegy", "pe", "rating", "wiggle"];
   sliders.forEach(key => {
     const sliderEl = tdEl(`filter_${key}`);
     const labelEl = tdEl(`lbl_${key}`);
