@@ -8,6 +8,7 @@ class MotionDetectorEngine:
         self.temp_frame = None
         self.cap = None
         self.is_moving = False
+        self.threshold = 25
 
     def _get_capture(self): # reuse the capture opject if it is open
         if self.cap is not None and self.cap.isOpened():
@@ -58,7 +59,7 @@ class MotionDetectorEngine:
                 if self.temp_frame is not None:
                     if self.temp_frame.shape == blurred_frame.shape:
                         diff = cv2.absdiff(self.temp_frame, blurred_frame)
-                        _, threshold = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+                        _, threshold = cv2.threshold(diff, self.threshold, 255, cv2.THRESH_BINARY)
                         mask_colour = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)  # convert to 3 channels or it doesnt work
                         mask_colour[:, :, 0] = 0
                         mask_colour[:, :, 1] = 0

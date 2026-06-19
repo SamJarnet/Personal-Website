@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+
+{% block title %}MP3 Analytics Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .music-panel {
+        background-color: #161b22; 
+        border: 1px solid #30363d;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+    
+    .music-panel:hover {
+        border-color: #3b8ad4; 
+    }
+
+    .custom-listbox {
+        background-color: #0d1117; 
+        border: 1px solid #30363d;
+        color: #c9d1d9;
+        min-height: 240px;
+        max-height: 280px;
+        border-radius: 8px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .track-item {
+        padding: 10px 14px;
+        border-bottom: 1px solid #21262d;
+        border-radius: 6px;
+        cursor: pointer;
+        color: #c9d1d9;
+        transition: all 0.2s ease;
+        margin-bottom: 4px;
+    }
+    
+    .track-item:last-child {
+        margin-bottom: 0;
+        border-bottom: none;
+    }
+
+    .track-item:hover {
+        background-color: rgba(59, 138, 212, 0.15); 
+        color: #3b8ad4;
+        transform: translateX(4px);
+    }
+
+    .track-item.active {
+        background: linear-gradient(135deg, #3971a5 0%, #3b8ad4 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(59, 138, 212, 0.3);
+    }
+
+    .stats-header-bar {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 16px;
+    }
+
+    .metric-value {
+        color: #3b8ad4; 
+        font-weight: 700;
+    }
+
+    .meta-text {
+        font-size: 0.85em;
+        color: #8b949e;
+    }
+
+    /* PREMIUM DARK-THEME AUDIO DOCK OVERRIDES */
+    .audio-dock {
+        background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+        border: 1px solid #3b8ad4;
+        border-top: 2px solid #3b8ad4;
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+    audio {
+        width: 100%;
+        filter: invert(90%) hue-rotate(180deg) drop-shadow(0px 4px 8px rgba(0,0,0,0.3));
+    }
+    
+    audio::-webkit-media-controls-panel {
+        background-color: #f8f9fa !important;
+        color: #212529 !important;
+    }
+
+    audio::-webkit-media-controls-play-button {
+        background-color: #3b8ad4 !important;
+        border-radius: 50%;
+        transform: scale(1.2);
+        margin-right: 10px;
+    }
+
+    audio::-webkit-media-controls-current-time-display,
+    audio::-webkit-media-controls-time-remaining-display {
+        color: #212529 !important;
+        font-weight: bold;
+    }
+
+    .custom-listbox::-webkit-scrollbar { width: 6px; }
+    .custom-listbox::-webkit-scrollbar-track { background: #0d1117; }
+    .custom-listbox::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+    .custom-listbox::-webkit-scrollbar-thumb:hover { background: #3b8ad4; }
+
+    .modal-content {
+        background-color: #161b22;
+        color: #e6edf3;
+        border: 1px solid #30363d;
+        border-radius: 16px;
+    }
+    .modal-header, .modal-footer { border-color: #30363d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper py-4">
+    <div class="container-fluid px-4">
+        
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 p-4 mb-4 stats-header-bar">
+            <div>
+                <h2 class="m-0 text-light" id="userWelcomeDisplay" style="font-size: 1.5rem;">
+                    Welcome, {% if username %}<span style="color: #3b8ad4;">{{ username }}</span>{% else %}<span class="text-muted">Guest (Stock Mode)</span>{% endif %}
+                </h2>
+            </div>
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <div class="text-light m-0 border border-secondary bg-dark px-3 py-2 rounded-pill" style="font-size: 0.9rem;">
+                    <i class="bi bi-speedometer2 me-2 text-info"></i><strong>Tracking:</strong> <span id="liveStatsDisplay" class="metric-value">Loading...</span>
+                </div>
+                {% if not username %}
+                    <button class="btn btn-primary text-uppercase" data-bs-toggle="modal" data-bs-target="#authModal" style="font-size: 0.8rem; letter-spacing: 0.5px;">Login / Sign Up</button>
+                {% else %}
+                    <button class="btn btn-outline-light text-uppercase" onclick="logoutUser()" style="font-size: 0.8rem; letter-spacing: 0.5px;">Logout</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-xl-4 col-lg-6">
+                <div class="music-panel text-light mb-4">
+                    <h3 class="mb-3" style="font-size: 1.2rem;">Your Playlists</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 15px;">
+                    <div id="playlistContainer" class="custom-listbox mb-3"></div>
+                    <div class="input-group mb-2">
+                        <input type="text" id="newPlaylistInput" class="form-control bg-dark text-light border-secondary" placeholder="New folder name...">
+                        <button class="btn btn-primary" onclick="createNewPlaylist()">Create</button>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger w-100 py-1 text-uppercase" onclick="deleteActivePlaylist()" style="font-size: 0.7rem;">Delete Selected Playlist</button>
+                </div>
+
+                <div class="music-panel text-light">
+                    <h3 class="mb-3" style="font-size: 1.2rem;">Search Library</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 15px;">
+                    <div class="input-group mb-3">
+                        <input type="text" id="searchInput" class="form-control bg-dark text-light border-secondary" placeholder="Type keywords (e.g. Neon, Dream)...">
+                        <button class="btn btn-primary" onclick="searchMusic()">Search</button>
+                    </div>
+                    <div id="searchContainer" class="custom-listbox mb-3">
+                        <p class="text-muted p-2 m-0">Query results will render here.</p>
+                    </div>
+                    <button class="btn btn-sm btn-outline-light w-100 py-2 text-uppercase" onclick="addSelectedToPlaylist()" style="font-size: 0.75rem;">Add Target to Active Playlist</button>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-6">
+                <div class="music-panel text-light mb-4">
+                    <h3 class="mb-3" style="font-size: 1.2rem;">Playlist Tracks</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 15px;">
+                    <div id="trackContainer" class="custom-listbox mb-3">
+                        <p class="text-muted p-2 m-0">Select a playlist folder entry.</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary w-50 py-2 text-uppercase" onclick="enqueueTrack()" style="font-size: 0.75rem;">Stage to Queue</button>
+                        <button class="btn btn-sm btn-outline-danger w-50 py-2 text-uppercase" onclick="deleteSelectedTrack()" style="font-size: 0.75rem;">Delete Song</button>
+                    </div>
+                </div>
+
+                <div class="music-panel text-light">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h3 class="mb-0" style="font-size: 1.2rem;">Up Next (Queue)</h3>
+                        <button class="btn btn-sm btn-danger text-uppercase px-2" onclick="dequeueTrack()" style="font-size: 0.7rem; background-color: #aa3d3d; border: none;">Dequeue & Play</button>
+                    </div>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 15px;">
+                    <div id="queueContainer" class="custom-listbox"></div>
+                </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-12">
+                <div class="music-panel text-light h-100">
+                    <h3 class="mb-3" style="font-size: 1.2rem;">AI Recommendations</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 15px;">
+                    <div id="recommendContainer" class="custom-listbox mb-3" style="min-height: 240px; max-height: 615px;">
+                        <p class="text-muted p-2 m-0">Select a target folder to evaluate similarities matrix.</p>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        <button class="btn btn-sm btn-primary w-100 py-2 text-uppercase" onclick="generateRecommendations()" style="font-size: 0.75rem; background-color: #3971a5;">Generate Matches</button>
+                        <button class="btn btn-sm btn-outline-light w-100 py-2 text-uppercase" onclick="enqueueTrack()" style="font-size: 0.75rem;">Push Selection to Queue</button>
+                        <button class="btn btn-sm btn-outline-success w-100 py-2 text-uppercase" onclick="addSelectedToPlaylist()" style="font-size: 0.75rem; border-color: #3971a5; color: #ffffff;">Add Target to Active Playlist</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="audio-dock mt-4">
+            <audio id="audioEngineControl" controls onplay="reportAction('resume')" onpause="reportAction('pause')">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="authModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="color: #3b8ad4; font-weight: 700;">Secure Login Manager</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="authUsername" class="form-label text-muted" style="font-weight: 600;">Username</label>
+          <input type="text" class="form-control bg-dark text-light border-secondary" id="authUsername">
+        </div>
+        <div class="mb-3">
+          <label for="authPassword" class="form-label text-muted" style="font-weight: 600;">Password</label>
+          <input type="password" class="form-control bg-dark text-light border-secondary" id="authPassword">
+        </div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-light text-uppercase" onclick="handleAuthAction('signup')" style="font-size: 0.8rem;">Sign Up Account</button>
+        <button type="button" class="btn btn-primary text-uppercase" onclick="handleAuthAction('login')" style="font-size: 0.8rem;">Log In</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    let activePlaylist = "";
+    let selectedTrackName = "";
+
+    window.onload = async () => {
+        await fetchPlaylists();
+        await refreshSystemStats();
+    };
+
+    async function handleAuthAction(mode) {
+        const usernameInput = document.getElementById("authUsername").value;
+        const passwordInput = document.getElementById("authPassword").value;
+        
+        if(!usernameInput || !passwordInput) return alert("Enter all data.");
+
+        const url = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ username: usernameInput, password: passwordInput })
+        });
+        const data = await response.json();
+        
+        alert(data.msg);
+        if(data.status === "success") window.location.reload();
+    }
+
+    async function logoutUser() {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.reload();
+    }
+
+    async function fetchPlaylists() {
+        const response = await fetch('/api/music/playlists');
+        const data = await response.json();
+        const container = document.getElementById("playlistContainer");
+        container.innerHTML = "";
+        
+        if (data.playlists.length === 0) {
+            container.innerHTML = "<p class='text-muted p-2 m-0'>No playlists yet.</p>";
+            return;
+        }
+
+        data.playlists.forEach(name => {
+            const el = document.createElement("div");
+            el.className = "track-item";
+            el.innerText = name;
+            el.onclick = () => {
+                document.querySelectorAll("#playlistContainer .track-item").forEach(x => x.classList.remove("active"));
+                el.classList.add("active");
+                activePlaylist = name;
+                loadPlaylistTracks(name);
+            };
+            container.appendChild(el);
+        });
+    }
+
+    async function createNewPlaylist() {
+        const inputField = document.getElementById("newPlaylistInput");
+        const name = inputField.value;
+        if(!name) return alert("Enter a valid playlist name.");
+
+        await fetch('/api/music/playlists/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ playlist_name: name })
+        });
+        inputField.value = "";
+        await fetchPlaylists();
+    }
+
+    async function deleteActivePlaylist() {
+        if(!activePlaylist) return alert("Select a target playlist row to delete.");
+        if(!confirm(`Are you sure you want to remove '${activePlaylist}'?`)) return;
+
+        await fetch('/api/music/playlists/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ playlist_name: activePlaylist })
+        });
+        activePlaylist = "";
+        document.getElementById("trackContainer").innerHTML = "<p class='text-muted p-2 m-0'>Select a playlist folder entry.</p>";
+        await fetchPlaylists();
+    }
+
+    async function loadPlaylistTracks(name) {
+        const response = await fetch('/api/music/playlist-tracks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ playlist_name: name })
+        });
+        const data = await response.json();
+        const container = document.getElementById("trackContainer");
+        container.innerHTML = "";
+        
+        if(data.tracks.length === 0) {
+            container.innerHTML = "<p class='text-muted p-2 m-0'>This playlist is empty.</p>";
+            return;
+        }
+
+        data.tracks.forEach(track => {
+            const el = document.createElement("div");
+            el.className = "track-item";
+            el.innerText = track;
+            el.onclick = () => {
+                clearSelections();
+                el.classList.add("active");
+                selectedTrackName = track;
+            };
+            container.appendChild(el);
+        });
+    }
+
+    async function deleteSelectedTrack() {
+        if(!activePlaylist || !selectedTrackName) return alert("Select a track from the playlist first.");
+        
+        await fetch('/api/music/playlist/delete-song', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ playlist_name: activePlaylist, track_title: selectedTrackName })
+        });
+        selectedTrackName = "";
+        await loadPlaylistTracks(activePlaylist);
+    }
+
+    async function searchMusic() {
+        const query = document.getElementById("searchInput").value;
+        const response = await fetch('/api/music/search', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ query: query })
+        });
+        const data = await response.json();
+        const container = document.getElementById("searchContainer");
+        container.innerHTML = "";
+        
+        if(data.results.length === 0) {
+            container.innerHTML = "<p class='text-muted p-2 m-0'>No songs matched your query.</p>";
+            return;
+        }
+
+        data.results.forEach(songObj => {
+            const el = document.createElement("div");
+            el.className = "track-item";
+            el.innerHTML = `
+                <div><strong>${songObj.title}</strong></div>
+                <div class="meta-text">Artist: ${songObj.artists.join(", ")} | Year: ${songObj.year}</div>
+            `;
+            el.onclick = () => {
+                clearSelections();
+                el.classList.add("active");
+                selectedTrackName = songObj.title; 
+            };
+            container.appendChild(el);
+        });
+    }
+
+    async function generateRecommendations() {
+        if(!activePlaylist) return alert("Select a playlist from column 1 first.");
+        const container = document.getElementById("recommendContainer");
+        container.innerHTML = "<p class='p-2' style='color: #3b8ad4;'>Running weights evaluation matrix...</p>";
+
+        const response = await fetch('/api/music/recommend', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ playlist_name: activePlaylist })
+        });
+        const data = await response.json();
+        container.innerHTML = "";
+
+        if(!data.recommendations || data.recommendations.length === 0) {
+            container.innerHTML = "<p class='text-muted p-2 m-0'>Add more baseline songs to evaluate.</p>";
+            return;
+        }
+
+        data.recommendations.forEach(track => {
+            const el = document.createElement("div");
+            el.className = "track-item";
+            el.innerText = track;
+            el.onclick = () => {
+                clearSelections();
+                el.classList.add("active");
+                selectedTrackName = track;
+            };
+            container.appendChild(el);
+        });
+    }
+
+    async function addSelectedToPlaylist() {
+        if(!activePlaylist) return alert("Select a target playlist folder first!");
+        if(!selectedTrackName) return alert("Select a song entry from your list components first!");
+
+        await fetch('/api/music/playlist/add-song', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ playlist_name: activePlaylist, track_title: selectedTrackName })
+        });
+        await loadPlaylistTracks(activePlaylist);
+    }
+
+    function clearSelections() {
+        document.querySelectorAll(".custom-listbox .track-item").forEach(x => x.classList.remove("active"));
+        selectedTrackName = "";
+    }
+
+    async function enqueueTrack() {
+        if (!selectedTrackName) return alert("Please click a track to select it first.");
+        const response = await fetch('/api/music/queue/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ track: selectedTrackName })
+        });
+        const data = await response.json();
+        if (data.status === "success") updateQueueUI(data.queue);
+    }
+
+    async function dequeueTrack() {
+        const response = await fetch('/api/music/queue/remove', { method: 'POST' });
+        const data = await response.json();
+        if (data.status === "success") {
+            updateQueueUI(data.queue);
+            if(data.dequeued) {
+                let trackFile = data.dequeued;
+                if (!trackFile.endsWith(".mp3")) {
+                    trackFile += ".mp3";
+                }
+                const audio = document.getElementById("audioEngineControl");
+                audio.src = `/assets/music/${trackFile}`;
+                audio.play().catch(err => {
+                    console.error("Playback failed. Verify file exists at static/music/", err);
+                    alert(`Could not load audio file: static/music/${trackFile}. Make sure it is placed there.`);
+                });
+            }
+        }
+    }
+
+    function updateQueueUI(queue) {
+        const container = document.getElementById("queueContainer");
+        container.innerHTML = "";
+        queue.forEach(track => {
+            const el = document.createElement("div");
+            el.className = "track-item";
+            el.innerText = track;
+            container.appendChild(el);
+        });
+    }
+
+    async function refreshSystemStats() {
+        const response = await fetch('/api/music/stats');
+        const data = await response.json();
+        document.getElementById("liveStatsDisplay").innerText = data.listening_metric;
+    }
+
+    async function reportAction(actionType) {
+        const response = await fetch('/api/music/stats', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: actionType })
+        });
+        const data = await response.json();
+        document.getElementById("liveStatsDisplay").innerText = data.listening_metric;
+    }
+</script>
+{% endblock %}
