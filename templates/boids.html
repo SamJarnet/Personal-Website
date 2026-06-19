@@ -1,189 +1,250 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Boids Simulation Framework</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #121212; color: #ffffff; }
-        .canvas-container { display: flex; justify-content: center; margin-top: 20px; }
-        canvas { background-color: #ffffff; border: 2px solid #333; border-radius: 4px; }
-        .control-panel { background-color: #1e1e1e; border-radius: 6px; padding: 20px; margin-top: 20px; }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-    {% include 'navbar.html' %}
+{% block title %}Boids Simulation Framework{% endblock %}
 
-    <div class="container-fluid px-4 my-4">
-        <h2 class="text-center">Boids Flocking Optimization Engine</h2>
-        <p class="text-muted text-center">Interactive 2D vector kinematics rendered via Web Canvas</p>
+{% block extra_head %}
+<style>
+    /* Scoped layout modifications to seamlessly merge with your design system */
+    .canvas-container { 
+        display: flex; 
+        justify-content: center; 
+    }
+    
+    canvas { 
+        background-color: #0d1117; /* Slate deep background */
+        border: 1px solid #30363d; 
+        border-radius: 16px; 
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
 
-        <div class="row align-items-start">
-            <div class="col-lg-9 col-md-8 canvas-container">
+    /* Custom styles for matching the native form sliders to your blue accents */
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 600;
+        color: #c9d1d9;
+        margin-bottom: 4px;
+    }
+
+    .value-counter {
+        color: #3b8ad4;
+        font-weight: 700;
+    }
+
+    .form-range::-webkit-slider-thumb {
+        background: #3971a5;
+    }
+    .form-range::-moz-range-thumb {
+        background: #3971a5;
+    }
+    .form-range::-webkit-slider-thumb:active {
+        background: #3b8ad4;
+    }
+
+    .form-check-input:checked {
+        background-color: #3971a5;
+        border-color: #3971a5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="container-fluid px-4">
+        <div class="text-center mb-4">
+            <h1 class="section-title">Boids Autonomous Swarm Simulation</h1>
+        </div>
+
+        <div class="row align-items-start g-4">
+            <div class="col-xl-9 col-lg-8 canvas-container">
                 <canvas id="boidsCanvas" width="800" height="800"></canvas>
             </div>
             
-            <div class="col-lg-3 col-md-4">
-                <div class="control-panel">
-                    <h4>Simulation Vectors</h4>
-                    <hr style="border-color: #444;">
+            <div class="col-xl-3 col-lg-4">
+                <div class="section-box" style="margin-bottom: 0;">
+                    <h3 class="mb-3" style="font-size: 1.25rem;">Simulation Parameters</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
                     
                     <div class="mb-3">
-                        <label class="form-label">Boid Population: <span id="boidCountVal">40</span></label>
+                        <div class="slider-header">
+                            <span>Population Size</span>
+                            <span id="boidCountVal" class="value-counter">40</span>
+                        </div>
                         <input type="range" class="form-range" id="boidCountSlider" min="5" max="150" step="1" value="40">
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Cohesion Strength: <span id="cohesionVal">0.134</span></label>
+                        <div class="slider-header">
+                            <span>Cohesion Magnitude</span>
+                            <span id="cohesionVal" class="value-counter">0.134</span>
+                        </div>
                         <input type="range" class="form-range" id="cohesionSlider" min="0" max="0.2" step="0.001" value="0.134">
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Separation Strength: <span id="separationVal">0.045</span></label>
+                        <div class="slider-header">
+                            <span>Separation Distance</span>
+                            <span id="separationVal" class="value-counter">0.045</span>
+                        </div>
                         <input type="range" class="form-range" id="separationSlider" min="0" max="0.5" step="0.001" value="0.045">
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Alignment Strength: <span id="alignmentVal">0.038</span></label>
+                        <div class="slider-header">
+                            <span>Alignment Force</span>
+                            <span id="alignmentVal" class="value-counter">0.038</span>
+                        </div>
                         <input type="range" class="form-range" id="alignmentSlider" min="0" max="0.2" step="0.001" value="0.038">
                     </div>
 
-                    <div class="form-check form-switch mb-4">
-                        <input class="form-check-input" type="checkbox" id="toggleCenters" checked>
-                        <label class="form-check-label" for="toggleCenters">Show Average Position Circles</label>
+                    <div class="form-check form-switch mb-4 mt-4">
+                        <input class="form-check-input" type="checkbox" id="toggleCenters" unchecked>
+                        <label class="form-check-label" for="toggleCenters" style="color: #8b949e; font-weight: 600;">Show Group Average-Positions</label>
                     </div>
 
-                    <button class="btn btn-primary w-100 mt-2" id="runBtn">Reset Swarm Array</button>
+                    <button class="btn btn-primary w-100 text-uppercase" id="runBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Restart Sim</button>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        const canvas = document.getElementById("boidsCanvas");
-        const ctx = canvas.getContext("2d");
-        const toggleCentersCheckbox = document.getElementById("toggleCenters");
+<script>
+    const canvas = document.getElementById("boidsCanvas");
+    const ctx = canvas.getContext("2d");
+    const toggleCentersCheckbox = document.getElementById("toggleCenters");
+    
+    const MAP_SIZE = 25.0; 
+
+    let animationFrames = [];
+    let animationIntervalId = null;
+    let isFetching = false;
+
+    function updateSliderLabels() {
+        document.getElementById("boidCountVal").innerText = document.getElementById("boidCountSlider").value;
+        document.getElementById("cohesionVal").innerText = document.getElementById("cohesionSlider").value;
+        document.getElementById("separationVal").innerText = document.getElementById("separationSlider").value;
+        document.getElementById("alignmentVal").innerText = document.getElementById("alignmentSlider").value;
+    }
+
+    async function fetchSimulation(isReset = false) {
+        if (isFetching && !isReset) return; 
+        isFetching = true;
+
+        updateSliderLabels();
         
-        const MAP_SIZE = 25.0; 
+        const payload = {
+            boid_count: parseInt(document.getElementById("boidCountSlider").value),
+            cohesion: parseFloat(document.getElementById("cohesionSlider").value),
+            separation: parseFloat(document.getElementById("separationSlider").value),
+            alignment: parseFloat(document.getElementById("alignmentSlider").value),
+            reset: isReset
+        };
 
-        let animationFrames = [];
-        let animationIntervalId = null;
-        let isFetching = false;
-
-        function updateSliderLabels() {
-            document.getElementById("boidCountVal").innerText = document.getElementById("boidCountSlider").value;
-            document.getElementById("cohesionVal").innerText = document.getElementById("cohesionSlider").value;
-            document.getElementById("separationVal").innerText = document.getElementById("separationSlider").value;
-            document.getElementById("alignmentVal").innerText = document.getElementById("alignmentSlider").value;
-        }
-
-        async function fetchSimulation(isReset = false) {
-            // Prevent multiple concurrent background calls
-            if (isFetching && !isReset) return; 
-            isFetching = true;
-
-            updateSliderLabels();
-            
-            const payload = {
-                boid_count: parseInt(document.getElementById("boidCountSlider").value),
-                cohesion: parseFloat(document.getElementById("cohesionSlider").value),
-                separation: parseFloat(document.getElementById("separationSlider").value),
-                alignment: parseFloat(document.getElementById("alignmentSlider").value),
-                reset: isReset
-            };
-
-            try {
-                const response = await fetch("/api/boids/simulate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                
-                if (data.status === "success") {
-                    if (isReset) {
-                        // Wipe old frames entirely if the user explicitly hits "Reset"
-                        animationFrames = data.frames;
-                        startPlayback();
-                    } else {
-                        // Append next calculated frame sequence smoothly to the back of the queue
-                        animationFrames = animationFrames.concat(data.frames);
-                    }
-                } else {
-                    console.error("Backend Simulation Error:", data.error);
-                }
-            } catch (err) {
-                console.error("Network or API communication failed:", err);
-            } finally {
-                isFetching = false;
-            }
-        }
-
-        function drawTriangle(x, y, angle, color) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(10, 0);
-            ctx.lineTo(-10, -6);
-            ctx.lineTo(-10, 6);
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.restore();
-        }
-
-        function drawGroupCenter(x, y) {
-            ctx.beginPath();
-            ctx.arc(x, y, 8, 0, 2 * Math.PI);
-            ctx.fillStyle = "rgba(0, 0, 255, 0.6)";
-            ctx.fill();
-        }
-
-        function playFrame() {
-            if (animationFrames.length === 0) return;
-            
-            // Consume the first item out of our frame buffer queue
-            const currentFrame = animationFrames.shift();
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Render blue group background circles
-            if (toggleCentersCheckbox.checked) {
-                currentFrame.centers.forEach(center => {
-                    const webX = (center.x / MAP_SIZE) * canvas.width;
-                    const webY = (1.0 - center.y / MAP_SIZE) * canvas.height;
-                    drawGroupCenter(webX, webY);
-                });
-            }
-
-            // Render boid triangles
-            currentFrame.boids.forEach(boid => {
-                const webX = (boid.x / MAP_SIZE) * canvas.width;
-                const webY = (1.0 - boid.y / MAP_SIZE) * canvas.height; 
-                const color = boid.in_group ? "red" : "black";
-                drawTriangle(webX, webY, -boid.angle, color);
+        try {
+            const response = await fetch("/api/boids/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
             });
-
-            // If the buffer queue is getting running low, fetch the next sequence in the background
-            if (animationFrames.length < 150) {
-                fetchSimulation(false);
+            const data = await response.json();
+            
+            if (data.status === "success") {
+                if (isReset) {
+                    animationFrames = data.frames;
+                    startPlayback();
+                } else {
+                    animationFrames = animationFrames.concat(data.frames);
+                }
+            } else {
+                console.error("Backend Simulation Error:", data.error);
             }
+        } catch (err) {
+            console.error("Network or API communication failed:", err);
+        } finally {
+            isFetching = false;
         }
+    }
 
-        function startPlayback() {
-            if (animationIntervalId) clearInterval(animationIntervalId);
-            animationIntervalId = setInterval(playFrame, 20);
-        }
-
-        // Action binding updates
-        document.getElementById("runBtn").addEventListener("click", () => fetchSimulation(true));
-        document.querySelectorAll(".form-range").forEach(el => el.addEventListener("input", updateSliderLabels));
+    // Renders sleek, modern aerodynamic vector triangles matching your site palette
+    function drawTriangle(x, y, angle, color) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
         
-        window.onload = () => fetchSimulation(true);
-    </script>
-</body>
-</html>
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-9, -5);
+        ctx.lineTo(-6, 0); // Slight back edge indent for a sleeker profile
+        ctx.lineTo(-9, 5);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+    // Draws radar-style barycenters using your native link green (#00a884)
+    function drawGroupCenter(x, y) {
+        ctx.save();
+        
+        // Inner focal coordinate
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(0, 168, 132, 0.85)";
+        ctx.fill();
+
+        // Outer radar field bubble
+        ctx.beginPath();
+        ctx.arc(x, y, 14, 0, 2 * Math.PI);
+        ctx.strokeStyle = "rgba(0, 168, 132, 0.25)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+
+    function playFrame() {
+        if (animationFrames.length === 0) return;
+        
+        const currentFrame = animationFrames.shift();
+        
+        // Clear canvas using local dark theme accent matching your stylesheet
+        ctx.fillStyle = "#0d1117";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Render group barycenters (Teal Field Links: #00a884)
+        if (toggleCentersCheckbox.checked) {
+            currentFrame.centers.forEach(center => {
+                const webX = (center.x / MAP_SIZE) * canvas.width;
+                const webY = (1.0 - center.y / MAP_SIZE) * canvas.height;
+                drawGroupCenter(webX, webY);
+            });
+        }
+
+        // Render individual boids
+        // Flocked boids: Bright blue brand color (#3b8ad4)
+        // Wandering solo boids: Clean text description slate (#c9d1d9)
+        currentFrame.boids.forEach(boid => {
+            const webX = (boid.x / MAP_SIZE) * canvas.width;
+            const webY = (1.0 - boid.y / MAP_SIZE) * canvas.height; 
+            const color = boid.in_group ? "#3b8ad4" : "#c9d1d9";
+            drawTriangle(webX, webY, -boid.angle, color);
+        });
+
+        if (animationFrames.length < 150) {
+            fetchSimulation(false);
+        }
+    }
+
+    function startPlayback() {
+        if (animationIntervalId) clearInterval(animationIntervalId);
+        animationIntervalId = setInterval(playFrame, 20);
+    }
+
+    document.getElementById("runBtn").addEventListener("click", () => fetchSimulation(true));
+    document.querySelectorAll(".form-range").forEach(el => el.addEventListener("input", updateSliderLabels));
+    
+    window.onload = () => fetchSimulation(true);
+</script>
+{% endblock %}

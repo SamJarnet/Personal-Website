@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Computer Vision Matrix | Motion Detection{% endblock %}
+
+{% block extra_head %}
+<style>
+    .viewport-box {
+        background-color: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        position: relative;
+    }
+    .stream-frame {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    #fallback-msg {
+        padding: 6rem 3rem;
+        text-align: center;
+        color: #8b949e;
+        font-size: 1.1rem;
+    }
+    .control-panel-btn {
+        transition: all 0.2s ease-in-out;
+        font-weight: 500;
+    }
+
+    .status-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .status-idle {
+        background-color: rgba(46, 160, 67, 0.15);
+        border: 1px solid #2ea043;
+        color: #56d364;
+    }
+    .status-motion {
+        background-color: rgba(248, 81, 73, 0.15);
+        border: 1px solid #f85149;
+        color: #ff7b72;
+        animation: pulse-border 1.5s infinite;
+    }
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .dot-idle {
+        background-color: #56d364;
+    }
+    .dot-motion {
+        background-color: #f85149;
+        animation: pulse-dot 1.5s infinite;
+    }
+
+    /* --- NEW SLIDER STYLING CHANGES --- */
+    .slider-container {
+        background: rgba(48, 54, 61, 0.2);
+        border: 1px solid #30363d;
+        padding: 15px;
+        border-radius: 10px;
+    }
+    .range-value {
+        font-family: monospace;
+        background: #0d1117;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid #30363d;
+        color: #58a6ff;
+    }
+
+    @keyframes pulse-dot {
+        0% { transform: scale(0.9); opacity: 0.6; }
+        50% { transform: scale(1.2); opacity: 1; }
+        100% { transform: scale(0.9); opacity: 0.6; }
+    }
+    @keyframes pulse-border {
+        0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(248, 81, 73, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="container py-4">
+        <div class="text-center mb-5">
+            <h1 class="section-title">OpenCV Motion Intelligence System</h1>
+            <p class="lead" style="color: #8b949e;">Real-time server-side delta differential matrix frame subtraction analysis</p>
+        </div>
+
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-12 text-center">
+                <button id="toggleCamBtn" class="btn btn-danger control-panel-btn me-2">🛑 Stop Camera</button>
+                <button id="toggleModeBtn" class="btn btn-outline-primary control-panel-btn">🎭 Switch to Mask View</button>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div id="motionStatusBanner" class="status-banner status-idle">
+                    <span id="motionStatusDot" class="status-dot dot-idle"></span>
+                    <span id="motionStatusText">SYSTEM ACTIVE: NO MOTION</span>
+                </div>
+
+                <div class="viewport-box">
+                    <img id="motionStream" class="stream-frame" alt="Live motion detection feed">
+                    <div id="fallback-msg">Connecting to camera feed...</div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="section-box h-100">
+                    <h3>Pipeline Metrics</h3>
+                    <hr style="border-color: #30363d;">
+                    
+                    <div class="slider-container mb-4 text-light">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label for="thresholdSlider" class="form-label fw-bold mb-0">Delta Threshold</label>
+                            <span id="thresholdDisplay" class="range-value">25</span>
+                        </div>
+                        <input type="range" class="form-range" id="thresholdSlider" min="5" max="150" value="25">
+                        <div class="d-flex justify-content-between small text-muted mt-1">
+                            <span>More Sensitive</span>
+                            <span>Less Sensitive</span>
+                        </div>
+                    </div>
+                    
+                    <ul class="list-unstyled text-light mt-4" style="line-height: 2rem;">
+                        <li class="mb-2"><strong>Core Package:</strong> OpenCV-Python</li>
+                        <li class="mb-2"><strong>Filter Chain:</strong> Gaussian blur 11x11 kernels</li>
+                        <li class="mb-2"><strong>Alert Matrix:</strong> High threshold red map</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const streamImg = document.getElementById('motionStream');
+    const fallbackMsg = document.getElementById('fallback-msg');
+    const toggleCamBtn = document.getElementById('toggleCamBtn');
+    const toggleModeBtn = document.getElementById('toggleModeBtn');
+    
+    // Status Indicators
+    const statusBanner = document.getElementById('motionStatusBanner');
+    const statusDot = document.getElementById('motionStatusDot');
+    const statusText = document.getElementById('motionStatusText');
+
+    // Slider Controls
+    const thresholdSlider = document.getElementById('thresholdSlider');
+    const thresholdDisplay = document.getElementById('thresholdDisplay');
+
+    let isCameraOn = true;
+    let displayMode = 'overlay';
+    let statusInterval = null;
+
+    function streamUrl() {
+        return "{{ url_for('motion.video_feed') }}?mode=" + displayMode + "&t=" + Date.now();
+    }
+
+    function startStream() {
+        fallbackMsg.style.display = 'none';
+        streamImg.style.display = 'block';
+        streamImg.src = streamUrl();
+        startStatusPolling();
+    }
+
+    function stopStream() {
+        stopStatusPolling();
+        streamImg.removeAttribute('src');
+        streamImg.style.display = 'none';
+        fallbackMsg.style.display = 'block';
+        fallbackMsg.innerText = "Stopping camera session and releasing hardware...";
+        setFrontendStatus('offline');
+
+        fetch("{{ url_for('motion.stop_camera') }}", { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                fallbackMsg.innerText = "Camera monitoring session paused. Hardware released.";
+                console.log(data.message);
+            })
+            .catch(err => {
+                console.error("Failed to cleanly stop camera hardware:", err);
+            });
+    }
+
+    function setFrontendStatus(state) {
+        if (state === 'motion') {
+            statusBanner.className = "status-banner status-motion";
+            statusDot.className = "status-dot dot-motion";
+            statusText.innerText = "MOTION DETECTED";
+        } else if (state === 'idle') {
+            statusBanner.className = "status-banner status-idle";
+            statusDot.className = "status-dot dot-idle";
+            statusText.innerText = "SYSTEM ACTIVE: NO MOTION";
+        } else {
+            statusBanner.className = "status-banner btn-secondary opacity-50";
+            statusDot.className = "status-dot bg-secondary";
+            statusText.innerText = "SYSTEM OFFLINE";
+        }
+    }
+
+    function startStatusPolling() {
+        if (statusInterval) clearInterval(statusInterval);
+        statusInterval = setInterval(() => {
+            if (!isCameraOn) return;
+            fetch("/api/motion/status")
+                .then(res => res.json())
+                .then(data => {
+                    if (data.movement) setFrontendStatus('motion');
+                    else setFrontendStatus('idle');
+                })
+                .catch(() => {});
+        }, 200);
+    }
+
+    function stopStatusPolling() {
+        if (statusInterval) {
+            clearInterval(statusInterval);
+            statusInterval = null;
+        }
+    }
+
+    // NEW: Send Slider value to backend via Fetch API
+    thresholdSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        thresholdDisplay.innerText = val;
+
+        fetch("/api/motion/threshold", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ value: val })
+        })
+        .then(res => res.json())
+        .then(data => console.log("Backend threshold synced:", data.current_threshold))
+        .catch(err => console.error("Error updates threshold sync:", err));
+    });
+
+    streamImg.addEventListener('error', () => {
+        if (!isCameraOn) return; 
+        fallbackMsg.style.display = 'block';
+        fallbackMsg.innerText = "Could not reach the camera feed. It may already be in use.";
+        streamImg.style.display = 'none';
+        setFrontendStatus('offline');
+    });
+
+    function toggleCameraState() {
+        if (isCameraOn) {
+            isCameraOn = false;
+            stopStream();
+            toggleCamBtn.innerText = "📹 Start Camera";
+            toggleCamBtn.className = "btn btn-success control-panel-btn me-2";
+        } else {
+            isCameraOn = true;
+            toggleCamBtn.innerText = "🛑 Stop Camera";
+            toggleCamBtn.className = "btn btn-danger control-panel-btn me-2";
+            startStream();
+        }
+    }
+
+    function toggleDisplayMode() {
+        displayMode = (displayMode === 'overlay') ? 'mask' : 'overlay';
+        if (displayMode === 'mask') {
+            toggleModeBtn.innerText = "🖼️ Switch to Overlay View";
+            toggleModeBtn.className = "btn btn-primary control-panel-btn";
+        } else {
+            toggleModeBtn.innerText = "🎭 Switch to Mask View";
+            toggleModeBtn.className = "btn btn-outline-primary control-panel-btn";
+        }
+        if (isCameraOn) startStream();
+    }
+
+    toggleCamBtn.addEventListener('click', toggleCameraState);
+    toggleModeBtn.addEventListener('click', toggleDisplayMode);
+
+    window.onload = startStream;
+</script>
+{% endblock %}

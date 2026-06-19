@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, render_template
-from boids_engine import Boids
+from engines.boids_engine import Boids
 
 boids_bp = Blueprint("boids", __name__)
 

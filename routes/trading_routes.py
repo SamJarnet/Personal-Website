@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 # Import your native strategy definitions
-import strategy_engine 
+import engines.strategy_engine as strategy_engine 
 
 load_dotenv()
 

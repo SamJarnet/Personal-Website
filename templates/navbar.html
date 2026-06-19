@@ -11,8 +11,17 @@
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/projects">Projects</a></li>
-        <li class="nav-item"><a class="nav-link" href="/trading">Trading</a></li>
-        <li class="nav-item"><a class="nav-link" href="/boids">Boids Simulation</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="projectsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Project Interface
+          </a>
+          <ul class="dropdown-menu dropdown-menu-dark custom-dropdown-menu" aria-labelledby="projectsDropdown">
+            <li><a class="dropdown-item" href="/trading">Trading Interface</a></li>
+            <li><a class="dropdown-item" href="/boids">Boids Simulator</a></li>
+            <li><a class="dropdown-item" href="/motion">Computer Vision Analytics</a></li> 
+          </ul>
+        </li>
+
         <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
       </ul>
     </div>
