@@ -1,48 +1,50 @@
-from flask import Blueprint, render_template, Response, request, jsonify
+from flask import Blueprint, render_template, request, Response, jsonify
+import cv2
+import numpy as np
 from engines.motion_engine import MotionDetectorEngine
 
-motion_bp = Blueprint("motion", __name__)
+motion_bp = Blueprint('motion', __name__)
 
-detector = MotionDetectorEngine(camera_index=0)
+# Global engine instance
+engine = MotionDetectorEngine()
 
-@motion_bp.route("/motion")
-def motion_page():
-    return render_template("motion.html")
+# --- MAIN PAGE ROUTE ---
+@motion_bp.route('/motion')  # Changed from '/' to '/motion'
+def index():
+    """Main motion detection page."""
+    return render_template('motion.html')
 
-@motion_bp.route("/api/motion/feed")
-def video_feed():
-    mode = request.args.get("mode", "overlay")
-    return Response(
-        detector.show_camera(mode=mode),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
-    )
+# --- API ROUTES ---
+@motion_bp.route('/process_frame', methods=['POST'])
+def process_frame():
+    """Receive a frame from the client, process it, return the processed image."""
+    file = request.files.get('frame')
+    if not file:
+        return "No frame", 400
 
-@motion_bp.route("/api/motion/stop", methods=["POST"])
-def stop_camera():
-    released = detector.release_camera()
-    return jsonify({
-        "status": "success" if released else "idle",
-        "message": "Camera hardware released."
-    })
+    # Decode JPEG/PNG to BGR
+    img_array = np.frombuffer(file.read(), np.uint8)
+    frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    if frame is None:
+        return "Invalid image", 400
 
-@motion_bp.route("/api/motion/status", methods=["GET"])
+    mode = request.args.get('mode', 'overlay')
+    processed = engine.process_frame(frame, mode)
+
+    # Encode as JPEG and return
+    _, jpeg = cv2.imencode('.jpg', processed)
+    return Response(jpeg.tobytes(), mimetype='image/jpeg')
+
+@motion_bp.route('/status', methods=['GET'])
 def motion_status():
-    return jsonify({
-        "movement": getattr(detector, "is_moving", False)
-    })
+    """Return whether motion is currently detected."""
+    return jsonify({'movement': engine.get_motion_status()})
 
-# NEW: Receiver API endpoint to ingest live frontend slider adjustments
-@motion_bp.route("/api/motion/threshold", methods=["POST"])
-def update_threshold():
-    data = request.get_json() or {}
-    new_val = data.get("value")
-    
-    if new_val is not None:
-        try:
-            # Force constraints (OpenCV pixel thresholds must live between 1 and 255)
-            detector.threshold = max(1, min(255, int(new_val)))
-            return jsonify({"status": "updated", "current_threshold": detector.threshold})
-        except ValueError:
-            return jsonify({"error": "Invalid numerical threshold supplied"}), 400
-            
-    return jsonify({"error": "Missing value parameter"}), 400
+@motion_bp.route('/threshold', methods=['POST'])
+def set_threshold():
+    """Update the motion detection threshold."""
+    data = request.get_json()
+    if 'value' not in data:
+        return jsonify({'error': 'Missing value'}), 400
+    engine.set_threshold(data['value'])
+    return jsonify({'current_threshold': engine.threshold})

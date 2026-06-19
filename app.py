@@ -7,8 +7,11 @@ from routes.mp3_routes import mp3_bp
 
 app = Flask(__name__, static_url_path='/assets')
 
+# --- PRESERVING SECURITY SIGNATURE FOR SESSIONS ---
+# This unlocks Flask's internal session configuration so your login manager works
 app.secret_key = os.urandom(24) 
 
+# Register blueprints WITHOUT URL prefixes
 app.register_blueprint(trading_bp)
 app.register_blueprint(boids_bp)
 app.register_blueprint(motion_bp)
@@ -18,16 +21,13 @@ app.register_blueprint(mp3_bp)
 def home():
     return render_template("home.html")
 
-
 @app.route("/projects")
 def projects():
     return render_template("projects.html")
 
-
 @app.route("/about")
 def about():
     return render_template("about.html")
-
 
 if __name__ == "__main__":
     import sys

@@ -64,7 +64,6 @@
         animation: pulse-dot 1.5s infinite;
     }
 
-    /* --- NEW SLIDER STYLING CHANGES --- */
     .slider-container {
         background: rgba(48, 54, 61, 0.2);
         border: 1px solid #30363d;
@@ -98,7 +97,7 @@
     <div class="container py-4">
         <div class="text-center mb-5">
             <h1 class="section-title">OpenCV Motion Intelligence System</h1>
-            <p class="lead" style="color: #8b949e;">Real-time server-side delta differential matrix frame subtraction analysis</p>
+            <p class="lead" style="color: #8b949e;">Real-time client-side capture with server-side delta differential matrix frame subtraction analysis</p>
         </div>
 
         <div class="row justify-content-center mb-4">
@@ -116,8 +115,11 @@
                 </div>
 
                 <div class="viewport-box">
-                    <img id="motionStream" class="stream-frame" alt="Live motion detection feed">
-                    <div id="fallback-msg">Connecting to camera feed...</div>
+                    <!-- Hidden video for capturing local camera -->
+                    <video id="localVideo" autoplay playsinline style="display:none;"></video>
+                    <canvas id="captureCanvas" style="display:none;"></canvas>
+                    <img id="motionStream" class="stream-frame" alt="Processed feed">
+                    <div id="fallback-msg">Connecting to camera...</div>
                 </div>
             </div>
             
@@ -150,6 +152,9 @@
 </div>
 
 <script>
+    const video = document.getElementById('localVideo');
+    const canvas = document.getElementById('captureCanvas');
+    const ctx = canvas.getContext('2d');
     const streamImg = document.getElementById('motionStream');
     const fallbackMsg = document.getElementById('fallback-msg');
     const toggleCamBtn = document.getElementById('toggleCamBtn');
@@ -167,37 +172,77 @@
     let isCameraOn = true;
     let displayMode = 'overlay';
     let statusInterval = null;
+    let frameInterval = null;
+    let streamObject = null;
 
-    function streamUrl() {
-        return "{{ url_for('motion.video_feed') }}?mode=" + displayMode + "&t=" + Date.now();
-    }
-
-    function startStream() {
-        fallbackMsg.style.display = 'none';
-        streamImg.style.display = 'block';
-        streamImg.src = streamUrl();
-        startStatusPolling();
-    }
-
-    function stopStream() {
-        stopStatusPolling();
-        streamImg.removeAttribute('src');
-        streamImg.style.display = 'none';
-        fallbackMsg.style.display = 'block';
-        fallbackMsg.innerText = "Stopping camera session and releasing hardware...";
-        setFrontendStatus('offline');
-
-        fetch("{{ url_for('motion.stop_camera') }}", { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                fallbackMsg.innerText = "Camera monitoring session paused. Hardware released.";
-                console.log(data.message);
+    // --- Camera & Frame Processing ---
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } })
+            .then(stream => {
+                streamObject = stream;
+                video.srcObject = stream;
+                video.play();
+                fallbackMsg.style.display = 'none';
+                streamImg.style.display = 'block';
+                // Start sending frames
+                if (frameInterval) clearInterval(frameInterval);
+                frameInterval = setInterval(sendFrame, 50); // ~20 fps
+                startStatusPolling();
             })
             .catch(err => {
-                console.error("Failed to cleanly stop camera hardware:", err);
+                console.error('Camera access denied:', err);
+                fallbackMsg.innerText = 'Camera access denied. Please allow camera permissions.';
+                fallbackMsg.style.display = 'block';
+                streamImg.style.display = 'none';
+                setFrontendStatus('offline');
             });
     }
 
+    function stopCamera() {
+        if (frameInterval) {
+            clearInterval(frameInterval);
+            frameInterval = null;
+        }
+        stopStatusPolling();
+        if (streamObject) {
+            streamObject.getTracks().forEach(track => track.stop());
+            streamObject = null;
+        }
+        video.srcObject = null;
+        streamImg.removeAttribute('src');
+        streamImg.style.display = 'none';
+        fallbackMsg.style.display = 'block';
+        fallbackMsg.innerText = "Camera stopped.";
+        setFrontendStatus('offline');
+    }
+
+    function sendFrame() {
+        if (!video.videoWidth) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(async (blob) => {
+            const formData = new FormData();
+            formData.append('frame', blob, 'frame.jpg');
+            const url = `/process_frame?mode=${displayMode}`;  // FIXED: removed /motion prefix
+            try {
+                const response = await fetch(url, { method: 'POST', body: formData });
+                if (response.ok) {
+                    const imgBlob = await response.blob();
+                    const imgUrl = URL.createObjectURL(imgBlob);
+                    streamImg.src = imgUrl;
+                    // Revoke old URL after a short delay to avoid memory buildup
+                    setTimeout(() => URL.revokeObjectURL(imgUrl), 200);
+                } else {
+                    console.error('Server processing error:', response.status);
+                }
+            } catch (err) {
+                console.error('Frame send error:', err);
+            }
+        }, 'image/jpeg', 0.8);
+    }
+
+    // --- Status Polling ---
     function setFrontendStatus(state) {
         if (state === 'motion') {
             statusBanner.className = "status-banner status-motion";
@@ -218,7 +263,7 @@
         if (statusInterval) clearInterval(statusInterval);
         statusInterval = setInterval(() => {
             if (!isCameraOn) return;
-            fetch("/api/motion/status")
+            fetch("/status")  // FIXED: removed /motion prefix
                 .then(res => res.json())
                 .then(data => {
                     if (data.movement) setFrontendStatus('motion');
@@ -235,40 +280,33 @@
         }
     }
 
-    // NEW: Send Slider value to backend via Fetch API
+    // --- Threshold Slider ---
     thresholdSlider.addEventListener('input', (e) => {
         const val = e.target.value;
         thresholdDisplay.innerText = val;
 
-        fetch("/api/motion/threshold", {
+        fetch("/threshold", {  // FIXED: removed /motion prefix
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ value: val })
         })
         .then(res => res.json())
         .then(data => console.log("Backend threshold synced:", data.current_threshold))
-        .catch(err => console.error("Error updates threshold sync:", err));
+        .catch(err => console.error("Error updating threshold:", err));
     });
 
-    streamImg.addEventListener('error', () => {
-        if (!isCameraOn) return; 
-        fallbackMsg.style.display = 'block';
-        fallbackMsg.innerText = "Could not reach the camera feed. It may already be in use.";
-        streamImg.style.display = 'none';
-        setFrontendStatus('offline');
-    });
-
+    // --- Toggle Controls ---
     function toggleCameraState() {
         if (isCameraOn) {
             isCameraOn = false;
-            stopStream();
+            stopCamera();
             toggleCamBtn.innerText = "📹 Start Camera";
             toggleCamBtn.className = "btn btn-success control-panel-btn me-2";
         } else {
             isCameraOn = true;
             toggleCamBtn.innerText = "🛑 Stop Camera";
             toggleCamBtn.className = "btn btn-danger control-panel-btn me-2";
-            startStream();
+            startCamera();
         }
     }
 
@@ -281,12 +319,16 @@
             toggleModeBtn.innerText = "🎭 Switch to Mask View";
             toggleModeBtn.className = "btn btn-outline-primary control-panel-btn";
         }
-        if (isCameraOn) startStream();
+        // mode will be applied on next frame send; no need to restart camera
     }
 
     toggleCamBtn.addEventListener('click', toggleCameraState);
     toggleModeBtn.addEventListener('click', toggleDisplayMode);
 
-    window.onload = startStream;
+    // --- Initialisation ---
+    window.onload = function() {
+        // Start camera automatically
+        startCamera();
+    };
 </script>
 {% endblock %}
