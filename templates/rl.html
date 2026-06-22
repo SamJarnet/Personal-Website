@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}RL Lab{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* ── tokens ──────────────────────────────────────────────────────────── */
+  :root {
+    --rl-bg:      #0d1117;
+    --rl-surf:    #161b22;
+    --rl-border:  #30363d;
+    --rl-accent:  #3971a5;
+    --rl-accentd: #3b8ad4;
+    --rl-text:    #e6edf3;
+    --rl-sub:     #8b949e;
+    --rl-green:   #3fb950;
+    --rl-red:     #f85149;
+    --rl-yellow:  #f7c948;
+    --rl-blue:    #79c0ff;
+    --rl-font:    'Courier New', Courier, monospace;
+    --rl-r:       6px;
+  }
+
+  #rl-app {
+    background: var(--rl-bg);
+    color: var(--rl-text);
+    font-family: var(--rl-font);
+    font-size: 13px;
+    min-height: calc(100vh - 60px);
+  }
+
+  #rl-topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px;
+    background: var(--rl-surf);
+    border-bottom: 1px solid var(--rl-border);
+  }
+  #rl-logo { font-size: 15px; font-weight: bold; color: var(--rl-accent); }
+
+  #rl-tabs {
+    display: flex; padding: 0 20px;
+    background: var(--rl-surf);
+    border-bottom: 1px solid var(--rl-border);
+  }
+  .rl-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--rl-sub); font-family: var(--rl-font); font-size: 12px;
+    font-weight: bold; padding: 10px 18px; cursor: pointer; margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+  }
+  .rl-tab:hover  { color: var(--rl-text); }
+  .rl-tab.active { color: var(--rl-accent); border-bottom-color: var(--rl-accent); }
+
+  .rl-panel { display: none; }
+  .rl-panel.active {
+    display: flex;
+    height: calc(100vh - 110px);
+    min-height: 500px;
+  }
+
+  .rl-sidebar {
+    width: 280px; min-width: 220px;
+    background: var(--rl-surf);
+    border-right: 1px solid var(--rl-border);
+    padding: 16px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    overflow-y: auto;
+  }
+  .rl-sidebar h3 {
+    font-size: 11px; letter-spacing: .05em; color: var(--rl-sub);
+    margin: 6px 0 2px;
+  }
+
+  .rl-pill {
+    background: var(--rl-bg); border: 1px solid var(--rl-border);
+    color: var(--rl-text); font-family: var(--rl-font); font-size: 11px;
+    padding: 8px 10px; border-radius: var(--rl-r); cursor: pointer;
+    text-align: left; transition: border-color .15s, color .15s;
+  }
+  .rl-pill:hover  { border-color: var(--rl-accent); }
+  .rl-pill.active { border-color: var(--rl-accent); color: var(--rl-accent); font-weight: bold; }
+
+  .rl-prow {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-top: 4px;
+  }
+  .rl-prow label { font-size: 11px; color: var(--rl-sub); }
+  .rl-prow input {
+    width: 90px; background: var(--rl-bg); border: 1px solid var(--rl-border);
+    color: var(--rl-text); font-family: var(--rl-font); font-size: 12px;
+    padding: 5px 8px; border-radius: var(--rl-r); outline: none;
+  }
+  .rl-prow input:focus { border-color: var(--rl-accent); }
+
+  .rl-run-btn {
+    margin-top: 10px;
+    background: var(--rl-accent); color: var(--rl-bg); border: none;
+    font-family: var(--rl-font); font-size: 12px; font-weight: bold;
+    padding: 10px; border-radius: var(--rl-r); cursor: pointer;
+    transition: background .15s;
+  }
+  .rl-run-btn:hover    { background: var(--rl-accentd); }
+  .rl-run-btn:disabled { opacity: .5; cursor: default; }
+
+  .rl-main {
+    flex: 1; padding: 20px; overflow-y: auto;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+
+  .rl-chart-card {
+    width: 100%; max-width: 640px;
+    background: var(--rl-surf); border: 1px solid var(--rl-border);
+    border-radius: var(--rl-r); padding: 16px;
+  }
+  .rl-chart-card h4 {
+    margin: 0 0 8px; font-size: 11px; color: var(--rl-sub);
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+
+  #rl-contextual-charts { display: none; flex-direction: column; gap: 16px; width: 100%; align-items: center; }
+
+  /* ── maze grid (qlearning / bellman) ─────────────────────────────────── */
+  #rl-maze-wrap {
+    display: none;
+    grid-template-columns: repeat(5, 64px);
+    gap: 3px;
+  }
+  .rl-cell {
+    width: 64px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--rl-surf); border: 1px solid var(--rl-border);
+    border-radius: 4px;
+    font-size: 16px; font-weight: bold; color: var(--rl-text);
+  }
+  .rl-cell.wall  { background: #2a1517; color: var(--rl-red); border-color: var(--rl-red); }
+  .rl-cell.start { background: #15232a; color: var(--rl-blue); border-color: var(--rl-blue); }
+  .rl-cell.goal  { background: #15291a; color: var(--rl-green); border-color: var(--rl-green); }
+
+  .rl-legend { display: flex; gap: 16px; font-size: 11px; color: var(--rl-sub); }
+  .rl-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .rl-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  /* ── continuous heatmap canvas ────────────────────────────────────────── */
+  #rl-heatmap-canvas {
+    display: none;
+    border: 1px solid var(--rl-border); border-radius: var(--rl-r);
+    background: var(--rl-surf);
+  }
+
+  .rl-empty {
+    color: var(--rl-sub); font-size: 12px; text-align: center; padding: 60px 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="rl-app">
+
+  <div id="rl-topbar">
+    <span id="rl-logo">◈ REINFORCEMENT LEARNING LAB</span>
+  </div>
+
+  <div id="rl-tabs">
+    <button class="rl-tab active" onclick="rlTab('bandits',this)">Multi-Armed Bandits</button>
+    <button class="rl-tab"        onclick="rlTab('gridworld',this)">Gridworld</button>
+  </div>
+
+  <!-- ── Bandits panel ──────────────────────────────────────────────────── -->
+  <div id="rl-bandits" class="rl-panel active">
+    <div class="rl-sidebar">
+      <h3>ALGORITHM</h3>
+      <button class="rl-pill active" onclick="rlBanditVariant('epsilon_greedy', this)">ε-Greedy (constant α)</button>
+      <button class="rl-pill"        onclick="rlBanditVariant('ucb', this)">UCB1</button>
+      <button class="rl-pill"        onclick="rlBanditVariant('bayesian', this)">Thompson Sampling</button>
+      <button class="rl-pill"        onclick="rlBanditVariant('contextual', this)">Contextual (Thompson)</button>
+
+      <h3 style="margin-top:14px">PARAMETERS</h3>
+      <div class="rl-prow"><label>Episodes</label><input id="rl-b-eps" value="10000"/></div>
+      <div class="rl-prow" id="rl-b-trials-row"><label>Trials (avg)</label><input id="rl-b-trials" value="50"/></div>
+
+      <button class="rl-run-btn" id="rl-b-run" onclick="rlRunBandit()">▶ RUN</button>
+    </div>
+
+    <div class="rl-main">
+      <div class="rl-chart-card" id="rl-bandit-card">
+        <h4>Estimated Q-value vs. True Reward Probability</h4>
+        <canvas id="rl-bandit-chart"></canvas>
+      </div>
+      <div id="rl-contextual-charts">
+        <div class="rl-chart-card"><h4>Context: Sunny</h4><canvas id="rl-ctx-sunny"></canvas></div>
+        <div class="rl-chart-card"><h4>Context: Cloudy</h4><canvas id="rl-ctx-cloudy"></canvas></div>
+        <div class="rl-chart-card"><h4>Context: Rainy</h4><canvas id="rl-ctx-rainy"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Gridworld panel ────────────────────────────────────────────────── -->
+  <div id="rl-gridworld" class="rl-panel">
+    <div class="rl-sidebar">
+      <h3>VARIANT</h3>
+      <button class="rl-pill active" onclick="rlGridVariant('qlearning', this)">Q-Learning (5x5 Maze)</button>
+      <button class="rl-pill"        onclick="rlGridVariant('bellman', this)">Value Iteration (5x5 Maze)</button>
+      <button class="rl-pill"        onclick="rlGridVariant('continuous', this)">Continuous (no walls)</button>
+      <button class="rl-pill"        onclick="rlGridVariant('continuous_walls', this)">Continuous + Wall</button>
+
+      <h3 style="margin-top:14px">PARAMETERS</h3>
+      <div class="rl-prow"><label>Episodes</label><input id="rl-g-eps" value="1000"/></div>
+
+      <button class="rl-run-btn" id="rl-g-run" onclick="rlRunGridworld()">▶ RUN</button>
+    </div>
+
+    <div class="rl-main">
+      <div class="rl-legend" id="rl-maze-legend" style="display:none">
+        <span><i style="background:var(--rl-blue)"></i>Start</span>
+        <span><i style="background:var(--rl-green)"></i>Goal</span>
+        <span><i style="background:var(--rl-red)"></i>Wall</span>
+      </div>
+      <div id="rl-maze-wrap"></div>
+      <canvas id="rl-heatmap-canvas" width="500" height="500"></canvas>
+      <div class="rl-empty" id="rl-grid-empty">Configure and run a variant above</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let rlBanditChart = null;
+let rlCtxCharts = {};
+let rlCurrentBanditVariant = 'epsilon_greedy';
+let rlCurrentGridVariant = 'qlearning';
+
+function rlTab(name, el) {
+  document.querySelectorAll('.rl-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.rl-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('rl-' + name).classList.add('active');
+  el.classList.add('active');
+}
+
+function rlBanditVariant(v, el) {
+  rlCurrentBanditVariant = v;
+  document.querySelectorAll('#rl-bandits .rl-pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('rl-b-trials-row').style.display = (v === 'contextual') ? 'none' : 'flex';
+}
+
+function rlGridVariant(v, el) {
+  rlCurrentGridVariant = v;
+  document.querySelectorAll('#rl-gridworld .rl-pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function rlRunBandit() {
+  const btn = document.getElementById('rl-b-run');
+  btn.disabled = true; btn.innerText = 'RUNNING…';
+
+  try {
+    if (rlCurrentBanditVariant === 'contextual') {
+      const eps = parseInt(document.getElementById('rl-b-eps').value) || 1000;
+      const data = await fetch('/api/rl/bandit/contextual/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episodes: eps })
+      }).then(r => r.json());
+
+      if (data.error) throw new Error(data.error);
+      rlRenderContextual(data);
+    } else {
+      const eps = parseInt(document.getElementById('rl-b-eps').value) || 10000;
+      const trials = parseInt(document.getElementById('rl-b-trials').value) || 50;
+      const data = await fetch('/api/rl/bandit/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variant: rlCurrentBanditVariant, episodes: eps, trials: trials })
+      }).then(r => r.json());
+
+      if (data.error) throw new Error(data.error);
+      rlRenderBanditChart(data);
+    }
+  } catch (err) {
+    alert('Run failed: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false; btn.innerText = '▶ RUN';
+  }
+}
+
+function rlRenderBanditChart(data) {
+  document.getElementById('rl-contextual-charts').style.display = 'none';
+  document.getElementById('rl-bandit-card').style.display = 'block';
+
+  const labels = data.estimated_values.map((_, i) => 'Arm ' + i);
+  if (rlBanditChart) rlBanditChart.destroy();
+  rlBanditChart = new Chart(document.getElementById('rl-bandit-chart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Estimated Q', data: data.estimated_values, backgroundColor: '#3971a5' },
+        { label: 'True P(reward)', data: data.true_probs, backgroundColor: '#f7c948' }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+        x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+      },
+      plugins: { legend: { labels: { color: '#e6edf3' } } }
+    }
+  });
+}
+
+function rlRenderContextual(data) {
+  document.getElementById('rl-bandit-card').style.display = 'none';
+  document.getElementById('rl-contextual-charts').style.display = 'flex';
+
+  ['sunny', 'cloudy', 'rainy'].forEach(ctx => {
+    const canvas = document.getElementById('rl-ctx-' + ctx);
+    if (rlCtxCharts[ctx]) rlCtxCharts[ctx].destroy();
+    rlCtxCharts[ctx] = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: data.estimated_values[ctx].map((_, i) => 'Arm ' + i),
+        datasets: [
+          { label: 'Estimated Q', data: data.estimated_values[ctx], backgroundColor: '#3971a5' },
+          { label: 'True P(reward)', data: data.true_probs[ctx], backgroundColor: '#f7c948' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+        },
+        plugins: { legend: { labels: { color: '#e6edf3' } } }
+      }
+    });
+  });
+}
+
+const RL_ARROWS = ['→', '↓', '←', '↑']; // matches actions {0:right,1:down,2:left,3:up}
+
+async function rlRunGridworld() {
+  const btn = document.getElementById('rl-g-run');
+  btn.disabled = true; btn.innerText = 'RUNNING…';
+
+  try {
+    const eps = parseInt(document.getElementById('rl-g-eps').value) || 1000;
+    const data = await fetch('/api/rl/gridworld/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variant: rlCurrentGridVariant, episodes: eps })
+    }).then(r => r.json());
+
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('rl-grid-empty').style.display = 'none';
+
+    if (rlCurrentGridVariant === 'qlearning' || rlCurrentGridVariant === 'bellman') {
+      document.getElementById('rl-heatmap-canvas').style.display = 'none';
+      document.getElementById('rl-maze-wrap').style.display = 'grid';
+      document.getElementById('rl-maze-legend').style.display = 'flex';
+      rlRenderMaze(data);
+    } else {
+      document.getElementById('rl-maze-wrap').style.display = 'none';
+      document.getElementById('rl-maze-legend').style.display = 'none';
+      document.getElementById('rl-heatmap-canvas').style.display = 'block';
+      rlRenderHeatmap(data);
+    }
+  } catch (err) {
+    alert('Run failed: ' + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false; btn.innerText = '▶ RUN';
+  }
+}
+
+function rlHeatColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  const r = Math.round(40 + t * (247 - 40));
+  const g = Math.round(30 + t * (201 - 30));
+  const b = Math.round(80 + t * (72 - 80));
+  return `rgb(${r},${g},${b})`;
+}
+
+function rlRenderMaze(data) {
+  const wrap = document.getElementById('rl-maze-wrap');
+  wrap.innerHTML = '';
+
+  const grid = data.grid;
+  const policy = data.policy || null;
+  const valueGrid = data.value_grid || null;
+
+  let vmin = 0, vmax = 1;
+  if (valueGrid) {
+    const flat = valueGrid.flat();
+    vmin = Math.min(...flat);
+    vmax = Math.max(...flat);
+  }
+
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const cellType = grid[r][c];
+      const div = document.createElement('div');
+      div.className = 'rl-cell';
+      if (cellType === 'X') div.classList.add('wall');
+      if (cellType === 'S') div.classList.add('start');
+      if (cellType === 'G') div.classList.add('goal');
+
+      if (policy && cellType !== 'X' && cellType !== 'G') {
+        div.innerText = RL_ARROWS[policy[r][c]];
+      } else if (valueGrid) {
+        const v = valueGrid[r][c];
+        const t = (v - vmin) / ((vmax - vmin) || 1);
+        if (cellType !== 'X' && cellType !== 'S' && cellType !== 'G') {
+          div.style.background = rlHeatColor(t);
+        }
+        div.innerText = v.toFixed(1);
+      } else if (cellType === 'S') {
+        div.innerText = 'S';
+      } else if (cellType === 'G') {
+        div.innerText = 'G';
+      }
+
+      wrap.appendChild(div);
+    }
+  }
+}
+
+function rlRenderHeatmap(data) {
+  const canvas = document.getElementById('rl-heatmap-canvas');
+  const ctx = canvas.getContext('2d');
+  const grid = data.value_grid;
+  const n = grid.length;
+  const cell = canvas.width / n;
+
+  let vmin = Infinity, vmax = -Infinity;
+  for (const row of grid) {
+    for (const v of row) {
+      if (v < vmin) vmin = v;
+      if (v > vmax) vmax = v;
+    }
+  }
+
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const t = (grid[r][c] - vmin) / ((vmax - vmin) || 1);
+      ctx.fillStyle = rlHeatColor(t);
+      ctx.fillRect(c * cell, r * cell, cell, cell);
+    }
+  }
+
+  if (data.walls && data.walls.length) {
+    const scaleX = canvas.width / data.grid_shape[0];
+    const scaleY = canvas.height / data.grid_shape[1];
+    ctx.strokeStyle = '#f85149';
+    ctx.lineWidth = 2;
+    data.walls.forEach(w => {
+      const [xmin, xmax, ymin, ymax] = w;
+      ctx.strokeRect(xmin * scaleX, ymin * scaleY, (xmax - xmin) * scaleX, (ymax - ymin) * scaleY);
+    });
+  }
+}
+</script>
+{% endblock %}

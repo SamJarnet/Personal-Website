@@ -4,6 +4,8 @@ from routes.trading_routes import trading_bp
 from routes.boids_routes import boids_bp
 from routes.motion_routes import motion_bp
 from routes.mp3_routes import mp3_bp
+from routes.rl_routes import rl_bp
+
 
 app = Flask(__name__, static_url_path='/assets')
 
@@ -16,6 +18,8 @@ app.register_blueprint(trading_bp)
 app.register_blueprint(boids_bp)
 app.register_blueprint(motion_bp)
 app.register_blueprint(mp3_bp)
+app.register_blueprint(rl_bp)
+
 
 @app.route("/")
 def home():

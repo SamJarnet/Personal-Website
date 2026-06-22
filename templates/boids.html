@@ -4,20 +4,18 @@
 
 {% block extra_head %}
 <style>
-    /* Scoped layout modifications to seamlessly merge with your design system */
     .canvas-container { 
         display: flex; 
         justify-content: center; 
     }
     
     canvas { 
-        background-color: #0d1117; /* Slate deep background */
+        background-color: #0d1117; 
         border: 1px solid #30363d; 
         border-radius: 16px; 
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
 
-    /* Custom styles for matching the native form sliders to your blue accents */
     .slider-header {
         display: flex;
         justify-content: space-between;
@@ -31,19 +29,19 @@
         font-weight: 700;
     }
 
-    .form-range::-webkit-slider-thumb {
-        background: #3971a5;
-    }
-    .form-range::-moz-range-thumb {
-        background: #3971a5;
-    }
-    .form-range::-webkit-slider-thumb:active {
-        background: #3b8ad4;
-    }
+    .form-range::-webkit-slider-thumb { background: #3971a5; }
+    .form-range::-moz-range-thumb { background: #3971a5; }
+    .form-range::-webkit-slider-thumb:active { background: #3b8ad4; }
 
     .form-check-input:checked {
         background-color: #3971a5;
         border-color: #3971a5;
+    }
+    
+    /* Highlight system styling for the active learning status */
+    .learning-active {
+        border-color: #00a884 !important;
+        box-shadow: 0 0 10px rgba(0, 168, 132, 0.2);
     }
 </style>
 {% endblock %}
@@ -61,16 +59,16 @@
             </div>
             
             <div class="col-xl-3 col-lg-4">
-                <div class="section-box" style="margin-bottom: 0;">
+                <div id="paramBox" class="section-box" style="margin-bottom: 0;">
                     <h3 class="mb-3" style="font-size: 1.25rem;">Simulation Parameters</h3>
                     <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
                     
                     <div class="mb-3">
                         <div class="slider-header">
                             <span>Population Size</span>
-                            <span id="boidCountVal" class="value-counter">40</span>
+                            <span id="boidCountVal" class="value-counter">50</span>
                         </div>
-                        <input type="range" class="form-range" id="boidCountSlider" min="5" max="150" step="1" value="40">
+                        <input type="range" class="form-range" id="boidCountSlider" min="5" max="150" step="1" value="50">
                     </div>
                     
                     <div class="mb-3">
@@ -97,9 +95,14 @@
                         <input type="range" class="form-range" id="alignmentSlider" min="0" max="0.2" step="0.001" value="0.038">
                     </div>
 
-                    <div class="form-check form-switch mb-4 mt-4">
-                        <input class="form-check-input" type="checkbox" id="toggleCenters" unchecked>
+                    <div class="form-check form-switch mb-2 mt-4">
+                        <input class="form-check-input" type="checkbox" id="toggleCenters">
                         <label class="form-check-label" for="toggleCenters" style="color: #8b949e; font-weight: 600;">Show Group Average-Positions</label>
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" id="toggleLearning">
+                        <label class="form-check-label" for="toggleLearning" style="color: #00a884; font-weight: 600;">Enable Bandit RL Learning</label>
                     </div>
 
                     <button class="btn btn-primary w-100 text-uppercase" id="runBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Restart Sim</button>
@@ -113,6 +116,8 @@
     const canvas = document.getElementById("boidsCanvas");
     const ctx = canvas.getContext("2d");
     const toggleCentersCheckbox = document.getElementById("toggleCenters");
+    const toggleLearningCheckbox = document.getElementById("toggleLearning");
+    const paramBox = document.getElementById("paramBox");
     
     const MAP_SIZE = 25.0; 
 
@@ -138,7 +143,8 @@
             cohesion: parseFloat(document.getElementById("cohesionSlider").value),
             separation: parseFloat(document.getElementById("separationSlider").value),
             alignment: parseFloat(document.getElementById("alignmentSlider").value),
-            reset: isReset
+            reset: isReset,
+            learning: toggleLearningCheckbox.checked
         };
 
         try {
@@ -166,41 +172,32 @@
         }
     }
 
-    // Renders sleek, modern aerodynamic vector triangles matching your site palette
     function drawTriangle(x, y, angle, color) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(angle);
-        
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.moveTo(10, 0);
         ctx.lineTo(-9, -5);
-        ctx.lineTo(-6, 0); // Slight back edge indent for a sleeker profile
+        ctx.lineTo(-6, 0); 
         ctx.lineTo(-9, 5);
         ctx.closePath();
         ctx.fill();
-        
         ctx.restore();
     }
 
-    // Draws radar-style barycenters using your native link green (#00a884)
     function drawGroupCenter(x, y) {
         ctx.save();
-        
-        // Inner focal coordinate
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, 2 * Math.PI);
         ctx.fillStyle = "rgba(0, 168, 132, 0.85)";
         ctx.fill();
-
-        // Outer radar field bubble
         ctx.beginPath();
         ctx.arc(x, y, 14, 0, 2 * Math.PI);
         ctx.strokeStyle = "rgba(0, 168, 132, 0.25)";
         ctx.lineWidth = 1.5;
         ctx.stroke();
-        
         ctx.restore();
     }
 
@@ -209,11 +206,17 @@
         
         const currentFrame = animationFrames.shift();
         
-        // Clear canvas using local dark theme accent matching your stylesheet
         ctx.fillStyle = "#0d1117";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Render group barycenters (Teal Field Links: #00a884)
+        // Update DOM inputs dynamically if learning rules are altering forces
+        if (toggleLearningCheckbox.checked && currentFrame.metrics) {
+            document.getElementById("cohesionSlider").value = currentFrame.metrics.cohesion;
+            document.getElementById("separationSlider").value = currentFrame.metrics.separation;
+            document.getElementById("alignmentSlider").value = currentFrame.metrics.alignment;
+            updateSliderLabels();
+        }
+
         if (toggleCentersCheckbox.checked) {
             currentFrame.centers.forEach(center => {
                 const webX = (center.x / MAP_SIZE) * canvas.width;
@@ -222,9 +225,6 @@
             });
         }
 
-        // Render individual boids
-        // Flocked boids: Bright blue brand color (#3b8ad4)
-        // Wandering solo boids: Clean text description slate (#c9d1d9)
         currentFrame.boids.forEach(boid => {
             const webX = (boid.x / MAP_SIZE) * canvas.width;
             const webY = (1.0 - boid.y / MAP_SIZE) * canvas.height; 
@@ -241,6 +241,16 @@
         if (animationIntervalId) clearInterval(animationIntervalId);
         animationIntervalId = setInterval(playFrame, 20);
     }
+
+    toggleLearningCheckbox.addEventListener("change", () => {
+        if (toggleLearningCheckbox.checked) {
+            paramBox.classList.add("learning-active");
+        } else {
+            paramBox.classList.remove("learning-active");
+        }
+        // Force simulation generation reset to flush precomputes or prior states
+        fetchSimulation(true);
+    });
 
     document.getElementById("runBtn").addEventListener("click", () => fetchSimulation(true));
     document.querySelectorAll(".form-range").forEach(el => el.addEventListener("input", updateSliderLabels));

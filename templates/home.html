@@ -1,65 +1,212 @@
 {% extends "base.html" %}
 
+{% block extra_head %}
+<style>
+    /* Fixed full-screen background canvas */
+    #bgCanvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        background-color: #0d1117;
+    }
+
+    /* Make text/card containers transparent to reveal the canvas underneath */
+    body, .intro-box, .custom-card {
+        background-color: transparent !important;
+    }
+
+    /* Glassmorphism backing panels so text stays perfectly readable */
+    .intro-box, .custom-card {
+        background: rgba(22, 27, 34, 0.75) !important;
+        border: 1px solid #30363d;
+        backdrop-filter: blur(6px);
+        border-radius: 12px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<header class="py-5 text-center">
-    <div class="container">
-        <div class="intro-box p-4">
-        <h1 class="display-4">I'm Samuel Jarnet</h1>
-        <p class="lead">Student developer at University of Southampton</p>
-        </div>
-    </div>
-</header>
+<canvas id="bgCanvas"></canvas>
 
-<section class="py-5">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-6">
-                <h2 class="mb-4">Skills</h2>
-                <ul>
-                    <li>Java Programming — Object-Oriented Design</li>
-                    <li>Python — GUI and Database Integration</li>
-                    <li>Linux and Self-Hosting using Raspberry PI</li>
-                    <li>Team Collaboration & Research</li>
-                    <li>Hardware knowledge from building and upgrading many systems</li>
-                </ul>
-            </div>
-
-            <div class="col-md-6">
-                <h2 class="mb-4">Achievements</h2>
-                <ul>
-                    <li>Studying at a top Russel Group University: University of Southampton</li>
-                    <li>Achieved First Class grade in Year 1 of University</li>
-                    <li>A* A* A in A Levels</li>
-                    <li>I tutored children from ages 7-14 the JavaScript and C# coding language with Code Ninjas</li>
-                </ul>
+<div class="content-wrapper">
+    <header class="py-5 text-center">
+        <div class="container">
+            <div class="intro-box p-4">
+                <h1 class="display-4" style="color: #c9d1d9;">I'm Samuel Jarnet</h1>
+                <p class="lead" style="color: #8b949e;">Student developer at University of Southampton</p>
             </div>
         </div>
-    </div>
-</section>
+    </header>
 
-<section class="py-5">
-    <div class="container">
-        <h2 class="mb-4">Featured Projects</h2>
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="card custom-card text-light">
-                    <div class="card-body">
-                        <h5 class="card-title">Trading Bot</h5>
-                        <p class="card-text">Simple Moving-Average trading bot. Uses matplotlib for visualisations and yfinance for data.</p>
-                        <a href="https://github.com/SamJarnet/Trade-Bot" class="btn btn-primary" target="_blank">GitHub</a>
+    <section class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="intro-box p-4 h-100">
+                        <h2 class="mb-4" style="color: #3b8ad4;">Skills</h2>
+                        <ul style="color: #c9d1d9;">
+                            <li>Java Programming — Object-Oriented Design</li>
+                            <li>Python — GUI and Database Integration</li>
+                            <li>Linux and Self-Hosting using Raspberry PI</li>
+                            <li>Team Collaboration & Research</li>
+                            <li>Hardware knowledge from building and upgrading many systems</li>
+                        </ul>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card custom-card text-light">
-                    <div class="card-body">
-                        <h5 class="card-title">MP3 Player Recommender</h5>
-                        <p class="card-text">Python project with GUI and SQLite. Recommends music using user's playlists.</p>
-                        <a href="https://github.com/SamJarnet/MP3-Player-Recommendation" class="btn btn-primary" target="_blank">GitHub</a>
+
+                <div class="col-md-6 mb-4">
+                    <div class="intro-box p-4 h-100">
+                        <h2 class="mb-4" style="color: #3b8ad4;">Achievements</h2>
+                        <ul style="color: #c9d1d9;">
+                            <li>Studying at a top Russel Group University: University of Southampton</li>
+                            <li>Achieved First Class grade in Year 1 of University</li>
+                            <li>A* A* A in A Levels</li>
+                            <li>I tutored children from ages 7-14 the JavaScript and C# coding language with Code Ninjas</li>
+                        </ul>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
+
+    <section class="py-5">
+        <div class="container">
+            <h2 class="mb-4" style="color: #c9d1d9;">Featured Projects</h2>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card custom-card text-light">
+                        <div class="card-body">
+                            <h5 class="card-title" style="color: #3b8ad4;">Trading Bot</h5>
+                            <p class="card-text" style="color: #8b949e;">Simple Moving-Average trading bot. Uses matplotlib for visualisations and yfinance for data.</p>
+                            <a href="https://github.com/SamJarnet/Trade-Bot" class="btn btn-primary" target="_blank">GitHub</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card custom-card text-light">
+                        <div class="card-body">
+                            <h5 class="card-title" style="color: #3b8ad4;">MP3 Player Recommender</h5>
+                            <p class="card-text" style="color: #8b949e;">Python project with GUI and SQLite. Recommends music using user's playlists.</p>
+                            <a href="https://github.com/SamJarnet/MP3-Player-Recommendation" class="btn btn-primary" target="_blank">GitHub</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+    const canvas = document.getElementById("bgCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const MAP_SIZE = 25.0; // Matches Python engine config
+
+    let animationFrames = [];
+    let isFetching = false;
+
+    async function fetchBackgroundSimulation(isReset = false) {
+        if (isFetching) return;
+        isFetching = true;
+
+        const payload = {
+            boid_count: 50,
+            cohesion: 0.134,
+            separation: 0.045,
+            alignment: 0.038,
+            reset: isReset
+        };
+
+        try {
+            const response = await fetch("/api/boids/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            
+            if (data.status === "success") {
+                if (isReset) {
+                    animationFrames = data.frames;
+                } else {
+                    // Append new frames to the end of our existing buffer array
+                    animationFrames = animationFrames.concat(data.frames);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to stream background boids simulation:", err);
+        } finally {
+            isFetching = false;
+        }
+    }
+
+    function drawBoidTriangle(x, y, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    
+    // Set a glowing drop-shadow
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = "#3b8ad4";
+    
+    ctx.fillStyle = "rgba(59, 138, 212, 0.5)"; // Mid-opacity filled body
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(-7, -4);
+    ctx.lineTo(-5, 0); 
+    ctx.lineTo(-7, 4);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
+}
+
+    function renderEngineFrame() {
+        // If the server was slow and we ran completely dry, skip rendering a frame instead of crashing
+        if (animationFrames.length === 0) {
+            requestAnimationFrame(renderEngineFrame);
+            return;
+        }
+        
+        const currentFrame = animationFrames.shift();
+        
+        ctx.fillStyle = "#0d1117";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        currentFrame.boids.forEach(boid => {
+            const screenX = (boid.x / MAP_SIZE) * canvas.width;
+            const screenY = (1.0 - boid.y / MAP_SIZE) * canvas.height; 
+            drawBoidTriangle(screenX, screenY, -boid.angle);
+        });
+
+        // FIX: Trigger the next server calculation much earlier.
+        // With 360 frames total, asking for a top-up when 250 frames remain 
+        // gives your Python math loops ~5 seconds of buffer to finish working.
+        if (animationFrames.length < 250 && !isFetching) {
+            fetchBackgroundSimulation(false);
+        }
+
+        requestAnimationFrame(renderEngineFrame);
+    }
+
+    // Initialize with an explicit double-load buffer on start so it never starves early on
+    window.onload = async () => {
+        // Load first batch
+        await fetchBackgroundSimulation(true);
+        // Immediately kick off a background fetch for a second batch to stack the buffer
+        fetchBackgroundSimulation(false);
+        
+        requestAnimationFrame(renderEngineFrame);
+    };
+</script>
 {% endblock %}

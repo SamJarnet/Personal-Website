@@ -315,45 +315,50 @@ def screen_tickers():
         results = []
         
         for symbol in tickers:
-            info_file = os.path.join(DATA_DIR, f"{symbol}_info.json")
-            if not os.path.exists(info_file):
-                continue
-            with open(info_file, "r") as f:
-                info = json.load(f)
+            try:
+
+                info_file = os.path.join(DATA_DIR, f"{symbol}_info.json")
+                if not os.path.exists(info_file):
+                    continue
+                with open(info_file, "r") as f:
+                    info = json.load(f)
+                    
+                financials_file = os.path.join(DATA_DIR, f"{symbol}_financials.csv")
+                balance_file = os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv")
+                fin_df = pd.read_csv(financials_file, index_col=0) if os.path.exists(financials_file) else None
+                bs_df = pd.read_csv(balance_file, index_col=0) if os.path.exists(balance_file) else None
                 
-            financials_file = os.path.join(DATA_DIR, f"{symbol}_financials.csv")
-            balance_file = os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv")
-            fin_df = pd.read_csv(financials_file, index_col=0) if os.path.exists(financials_file) else None
-            bs_df = pd.read_csv(balance_file, index_col=0) if os.path.exists(balance_file) else None
-            
-            m = compute_metrics(info, fin_df, bs_df)
-            
-            # Evaluate the 6 distinct analytical criteria using wiggle room factors
-            score = 0
-            if m["gross_margin"] is not None and m["gross_margin"] >= (min_gm * w_lower): score += 1
-            if m["roce"] is not None and m["roce"] >= (min_roce * w_lower): score += 1
-            if m["fcf"] is not None and m["fcf"] >= (min_fcf * w_lower): score += 1
-            if m["debt_equity"] is not None and m["debt_equity"] <= (max_debt_equity * w_upper): score += 1
-            if m["pegy"] is not None and m["pegy"] <= (max_pegy * w_upper): score += 1
-            if m["pe"] is not None and m["pe"] <= (max_pe * w_upper): score += 1
-            
-            # Filter matches based on user's minimum rating selection
-            if score < min_rating: 
+                m = compute_metrics(info, fin_df, bs_df)
+                m = {k: clean(v) for k, v in m.items()} 
+
+                # Evaluate the 6 distinct analytical criteria using wiggle room factors
+                score = 0
+                if m["gross_margin"] is not None and m["gross_margin"] >= (min_gm * w_lower): score += 1
+                if m["roce"] is not None and m["roce"] >= (min_roce * w_lower): score += 1
+                if m["fcf"] is not None and m["fcf"] >= (min_fcf * w_lower): score += 1
+                if m["debt_equity"] is not None and m["debt_equity"] <= (max_debt_equity * w_upper): score += 1
+                if m["pegy"] is not None and m["pegy"] <= (max_pegy * w_upper): score += 1
+                if m["pe"] is not None and m["pe"] <= (max_pe * w_upper): score += 1
+                
+                # Filter matches based on user's minimum rating selection
+                if score < min_rating: 
+                    continue
+                
+                results.append({
+                    "symbol": symbol,
+                    "name": info.get("longName", symbol),
+                    "rating": f"{score}/6",
+                    "gross_margin": round(m["gross_margin"], 1) if m["gross_margin"] is not None else "—",
+                    "roce": round(m["roce"], 1) if m["roce"] is not None else "—",
+                    "fcf": round(m["fcf"], 2) if m["fcf"] is not None else "—",
+                    "debt_equity": round(m["debt_equity"], 2) if m["debt_equity"] is not None else "—",
+                    "pegy": round(m["pegy"], 2) if m["pegy"] is not None else "—",
+                    "pe": round(m["pe"], 1) if m["pe"] is not None else "—",
+                    "dividend_yield": round(m["dividend_yield"], 2) if m["dividend_yield"] is not None else "—"
+                })
+            except Exception as e:
+                print(f"Skipping {symbol}: {e}")
                 continue
-            
-            results.append({
-                "symbol": symbol,
-                "name": info.get("longName", symbol),
-                "rating": f"{score}/6",
-                "gross_margin": round(m["gross_margin"], 1) if m["gross_margin"] is not None else "—",
-                "roce": round(m["roce"], 1) if m["roce"] is not None else "—",
-                "fcf": round(m["fcf"], 2) if m["fcf"] is not None else "—",
-                "debt_equity": round(m["debt_equity"], 2) if m["debt_equity"] is not None else "—",
-                "pegy": round(m["pegy"], 2) if m["pegy"] is not None else "—",
-                "pe": round(m["pe"], 1) if m["pe"] is not None else "—",
-                "dividend_yield": round(m["dividend_yield"], 2) if m["dividend_yield"] is not None else "—"
-            })
-            
         # Sort results by higher scoring setups first
         results.sort(key=lambda x: int(x["rating"].split('/')[0]), reverse=True)
         return jsonify({"results": results})

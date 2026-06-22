@@ -12,10 +12,16 @@ html, body {
     scroll-behavior: smooth;
 }
 
-/* Main content container */
+/* Main content container - Responsive vertical padding */
 main, .content-wrapper {
     flex-grow: 1;
-    padding: 3rem 1rem;
+    padding: 1.5rem 1rem;
+}
+
+@media (min-width: 768px) {
+    main, .content-wrapper {
+        padding: 3rem 1rem;
+    }
 }
 
 /* Header sections */
@@ -41,31 +47,44 @@ h1, h2, h3 {
 .custom-navbar .navbar-brand {
     color: #c9d1d9 !important;
     font-weight: 500;
-    transition: color 0.2s ease-in-out;}
+    transition: color 0.2s ease-in-out;
+}
 
 .custom-navbar .nav-link:hover,
 .custom-navbar .navbar-brand:hover {
-    color: #3b8ad4 !important;}
+    color: #3b8ad4 !important;
+}
 
-/* Cards / Containers */
+/* Cards / Containers - Fluid mobile paddings */
 .custom-card,
 .section-box {
     background-color: #161b22;
     border: 1px solid #30363d;
     border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    padding: 2rem;
-    margin-bottom: 2rem;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
     transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-.custom-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-    border-color: #3b8ad4;
+@media (min-width: 576px) {
+    .custom-card,
+    .section-box {
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
 }
 
-/* Buttons */
+/* Restrict desktop translations from misbehaving on touch taps */
+@media (hover: hover) {
+    .custom-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+        border-color: #3b8ad4;
+    }
+}
+
+/* Buttons - Full width layout friendly on ultra-narrow screens */
 .btn-primary {
     background-color: #3971a5;
     border: none;
@@ -75,9 +94,11 @@ h1, h2, h3 {
     transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
-.btn-primary:hover {
-    background-color: #3b8ad4;
-    transform: scale(1.03);
+@media (hover: hover) {
+    .btn-primary:hover {
+        background-color: #3b8ad4;
+        transform: scale(1.03);
+    }
 }
 
 .btn-outline-light {
@@ -89,10 +110,12 @@ h1, h2, h3 {
     transition: all 0.2s ease;
 }
 
-.btn-outline-light:hover {
-    background-color: #c9d1d9;
-    color: #0d1117;
-    transform: scale(1.03);
+@media (hover: hover) {
+    .btn-outline-light:hover {
+        background-color: #c9d1d9;
+        color: #0d1117;
+        transform: scale(1.03);
+    }
 }
 
 /* Footer */
@@ -129,56 +152,64 @@ a:hover {
     border-bottom: 2px solid #30363d;
     margin-bottom: 1.5rem;
     padding-bottom: 0.5rem;
-    display: inline-block; /* Makes the underline fit the text width */
+    display: inline-block; 
 }
+
 .intro-box {
-    background: linear-gradient(145deg, #161b22, #0d1117); /* Premium gradient feel */
+    background: linear-gradient(145deg, #161b22, #0d1117);
     color: #f0f6fc;
     border-radius: 16px;
     border: 1px solid #30363d;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
     max-width: 650px;
     margin: 0 auto;
-    padding: 3rem 2rem;
+    padding: 2rem 1.25rem;
     transition: transform 0.3s ease;
 }
 
-.intro-box:hover {
-    transform: scale(1.01);
+@media (min-width: 576px) {
+    .intro-box {
+        padding: 3rem 2rem;
+    }
 }
 
+@media (hover: hover) {
+    .intro-box:hover {
+        transform: scale(1.01);
+    }
+}
+
+/* Admin Dashboard Controllers */
 .td-admin-ctrl-btn {
-  background: var(--td-surf);
-  color: var(--td-sub);
-  border: 1px solid var(--td-border);
-  font-family: var(--td-font);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding: 6px 12px;
-  border-radius: var(--td-r);
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  margin: 15px auto 0 auto; /* Centers it horizontally */
-  
-  /* THIS FIXED THE WIDTH */
-  display: block;          /* Allows width constraints */
-  max-width: 130px;        /* Forces it to be small/short */
-  max-height: 80px;
-  text-align: center;      /* Centers the text inside */
+    background: var(--td-surf);
+    color: var(--td-sub);
+    border: 1px solid var(--td-border);
+    font-family: var(--td-font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    border-radius: var(--td-r);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    margin: 15px auto 0 auto;
+    display: block;          
+    max-width: 130px;        
+    max-height: 80px;
+    text-align: center;      
 }
 
 .td-admin-ctrl-btn:hover {
-  color: var(--td-accent);
-  border-color: var(--td-accent);
+    color: var(--td-accent);
+    border-color: var(--td-accent);
 }
 
 .td-admin-ctrl-btn.admin-active {
-  color: var(--td-red);
-  border-color: rgba(248, 81, 73, 0.4);
-  max-width: 140px; /* Gives a tiny bit extra room for "Exit Admin Mode" text */
+    color: var(--td-red);
+    border-color: rgba(248, 81, 73, 0.4);
+    max-width: 140px; 
 }
 
 .td-admin-ctrl-btn.admin-active:hover {
-  border-color: var(--td-red);
+    border-color: var(--td-red);
 }
