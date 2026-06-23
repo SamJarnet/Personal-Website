@@ -110,10 +110,14 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    const MAP_SIZE = 25.0; // Matches Python engine config
+    const MAP_SIZE = 25.0; 
 
     let animationFrames = [];
     let isFetching = false;
+
+    // Timing variables to throttle performance to 50 FPS (20ms per frame)
+    let lastFrameTime = 0;
+    const FRAME_DELAY = 20; 
 
     async function fetchBackgroundSimulation(isReset = false) {
         if (isFetching) return;
@@ -139,7 +143,6 @@
                 if (isReset) {
                     animationFrames = data.frames;
                 } else {
-                    // Append new frames to the end of our existing buffer array
                     animationFrames = animationFrames.concat(data.frames);
                 }
             }
@@ -151,33 +154,43 @@
     }
 
     function drawBoidTriangle(x, y, angle) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    
-    // Set a glowing drop-shadow
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = "#3b8ad4";
-    
-    ctx.fillStyle = "rgba(59, 138, 212, 0.5)"; // Mid-opacity filled body
-    ctx.beginPath();
-    ctx.moveTo(8, 0);
-    ctx.lineTo(-7, -4);
-    ctx.lineTo(-5, 0); 
-    ctx.lineTo(-7, 4);
-    ctx.closePath();
-    ctx.fill();
-    
-    ctx.restore();
-}
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#3b8ad4";
+        
+        ctx.fillStyle = "rgba(59, 138, 212, 0.5)"; 
+        ctx.beginPath();
+        ctx.moveTo(8, 0);
+        ctx.lineTo(-7, -4);
+        ctx.lineTo(-5, 0); 
+        ctx.lineTo(-7, 4);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    }
 
-    function renderEngineFrame() {
-        // If the server was slow and we ran completely dry, skip rendering a frame instead of crashing
+    function renderEngineFrame(timestamp) {
+        // Schedule the next check immediately
+        requestAnimationFrame(renderEngineFrame);
+
+        // Throttle calculation: Check if 20ms have passed since the last processed frame
+        const elapsed = timestamp - lastFrameTime;
+        if (elapsed < FRAME_DELAY) {
+            return; 
+        }
+
+        // Skip rendering if we run completely dry out of frames
         if (animationFrames.length === 0) {
-            requestAnimationFrame(renderEngineFrame);
             return;
         }
         
+        // Adjust lastFrameTime while accounting for slight execution drifts
+        lastFrameTime = timestamp - (elapsed % FRAME_DELAY);
+
         const currentFrame = animationFrames.shift();
         
         ctx.fillStyle = "#0d1117";
@@ -189,24 +202,20 @@
             drawBoidTriangle(screenX, screenY, -boid.angle);
         });
 
-        // FIX: Trigger the next server calculation much earlier.
-        // With 360 frames total, asking for a top-up when 250 frames remain 
-        // gives your Python math loops ~5 seconds of buffer to finish working.
         if (animationFrames.length < 250 && !isFetching) {
             fetchBackgroundSimulation(false);
         }
-
-        requestAnimationFrame(renderEngineFrame);
     }
 
-    // Initialize with an explicit double-load buffer on start so it never starves early on
     window.onload = async () => {
-        // Load first batch
         await fetchBackgroundSimulation(true);
-        // Immediately kick off a background fetch for a second batch to stack the buffer
         fetchBackgroundSimulation(false);
         
-        requestAnimationFrame(renderEngineFrame);
+        // Pass the initial timestamp to kick off the throttled engine loop smoothly
+        requestAnimationFrame((timestamp) => {
+            lastFrameTime = timestamp;
+            renderEngineFrame(timestamp);
+        });
     };
 </script>
 {% endblock %}

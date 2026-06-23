@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Rocket Suicide Burn Simulation{% endblock %}
+
+{% block extra_head %}
+<style>
+    .canvas-container { 
+        display: flex; 
+        justify-content: center; 
+    }
+    
+    canvas { 
+        background-color: #0d1117; 
+        border: 1px solid #30363d; 
+        border-radius: 16px; 
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .telemetry-row {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 600;
+        color: #c9d1d9;
+        margin-bottom: 8px;
+        font-family: monospace;
+    }
+
+    .value-counter {
+        color: #3b8ad4;
+        font-weight: 700;
+    }
+
+    .status-alert {
+        color: #da3633;
+        font-weight: 700;
+        animation: blinker 1s linear infinite;
+    }
+
+    @keyframes blinker {
+        50% { opacity: 0; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="container-fluid px-4">
+        <div class="text-center mb-4">
+            <h1 class="section-title">Retro-Rocket Suicide Burn Simulation</h1>
+        </div>
+
+        <div class="row align-items-start g-4">
+            <div class="col-xl-9 col-lg-8 canvas-container">
+                <canvas id="rocketCanvas" width="800" height="800"></canvas>
+            </div>
+            
+            <div class="col-xl-3 col-lg-4">
+                <div id="controlBox" class="section-box" style="margin-bottom: 0;">
+                    <h3 class="mb-3" style="font-size: 1.25rem;">Telemetry & Systems</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
+                    
+                    <div class="mb-2">
+                        <div class="telemetry-row">
+                            <span>Altitude (Y):</span>
+                            <span id="altVal" class="value-counter">0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <div class="telemetry-row">
+                            <span>Velocity (Vy):</span>
+                            <span id="velYVal" class="value-counter">0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="telemetry-row">
+                            <span>System Alerts:</span>
+                            <span id="systemStatus" style="color: #2ea043;">NOMINAL</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-column">
+                        <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Hold Manual Thrust (W)</button>
+                        <button class="btn btn-success w-100 text-uppercase" id="landBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Suicide Burn</button>
+                        <hr style="border-color: #30363d;">
+                        <button class="btn btn-primary w-100 text-uppercase" id="resetBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Reset Simulation</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById("rocketCanvas");
+    const ctx = canvas.getContext("2d");
+    
+    const MAP_SIZE = 10.0; 
+
+    let animationFrames = [];
+    let animationIntervalId = null;
+    let isFetching = false;
+    
+    let inputThrusting = false;
+    let inputLandingActive = false;
+
+    async function fetchSimulation(isReset = false) {
+        if (isFetching && !isReset) return; 
+        isFetching = true;
+
+        const payload = {
+            reset: isReset,
+            thrusting: inputThrusting,
+            landing: inputLandingActive
+        };
+
+        try {
+            const response = await fetch("/api/rocket/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            
+            if (data.status === "success") {
+                if (isReset) {
+                    animationFrames = data.frames;
+                    startPlayback();
+                } else {
+                    animationFrames = animationFrames.concat(data.frames);
+                }
+            } else {
+                console.error("Backend Physics Engine Error:", data.error);
+            }
+        } catch (err) {
+            console.error("Network communication failure:", err);
+        } finally {
+            isFetching = false;
+        }
+    }
+
+    function drawRocket(x, y, angle, metrics) {
+        ctx.save();
+        ctx.translate(x, y);
+        // Correcting base asset alignment so rocket points skyward relative to vector orientation
+        ctx.rotate(angle - Math.PI / 2);
+        
+        ctx.fillStyle = metrics.landing_burn ? "#2ea043" : "#c9d1d9";
+        
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.lineTo(-10, 14);
+        ctx.lineTo(0, 9); 
+        ctx.lineTo(10, 14);
+        ctx.closePath();
+        ctx.fill();
+
+        if (metrics.thrusting || metrics.landing_burn) {
+            ctx.fillStyle = "#ff5500";
+            ctx.beginPath();
+            ctx.moveTo(-4, 10);
+            ctx.lineTo(0, 25);
+            ctx.lineTo(4, 10);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function drawEnvironment() {
+        const groundY = (1.0 - 1.0 / MAP_SIZE) * canvas.height;
+        ctx.strokeStyle = "#58a6ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY);
+        ctx.lineTo(canvas.width, groundY);
+        ctx.stroke();
+    }
+
+    function playFrame() {
+        if (animationFrames.length === 0) return;
+        
+        const currentFrame = animationFrames.shift();
+        
+        ctx.fillStyle = "#0d1117";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawEnvironment();
+
+        const webX = (currentFrame.x / MAP_SIZE) * canvas.width;
+        const webY = (1.0 - currentFrame.y / MAP_SIZE) * canvas.height;
+
+        document.getElementById("altVal").innerText = currentFrame.y.toFixed(2);
+        document.getElementById("velYVal").innerText = currentFrame.metrics.vy.toFixed(3);
+
+        if (currentFrame.exploded) {
+            document.getElementById("systemStatus").className = "status-alert";
+            document.getElementById("systemStatus").style.color = "#da3633";
+            document.getElementById("systemStatus").innerText = "CRITICAL BOOM";
+        } else if (currentFrame.metrics.landing_burn) {
+            document.getElementById("systemStatus").className = "";
+            document.getElementById("systemStatus").style.color = "#ff5500";
+            document.getElementById("systemStatus").innerText = "SUICIDE BURN";
+        } else {
+            document.getElementById("systemStatus").className = "";
+            document.getElementById("systemStatus").style.color = "#2ea043";
+            document.getElementById("systemStatus").innerText = "NOMINAL";
+        }
+
+        drawRocket(webX, webY, currentFrame.angle, currentFrame.metrics);
+
+        // FIX: Ask for individual frames in near real-time context loops
+        if (animationFrames.length < 2) {
+            fetchSimulation(false);
+        }
+    }
+
+    function startPlayback() {
+        if (animationIntervalId) clearInterval(animationIntervalId);
+        animationIntervalId = setInterval(playFrame, 20);
+    }
+
+    window.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === 'w') {
+            inputThrusting = true;
+        }
+    });
+
+    window.addEventListener("keyup", (e) => {
+        if (e.key.toLowerCase() === 'w') {
+            inputThrusting = false;
+        }
+    });
+
+    document.getElementById("thrustBtn").addEventListener("mousedown", () => inputThrusting = true);
+    document.getElementById("thrustBtn").addEventListener("mouseup", () => inputThrusting = false);
+    document.getElementById("thrustBtn").addEventListener("mouseleave", () => inputThrusting = false);
+    
+    document.getElementById("landBtn").addEventListener("click", () => {
+        inputLandingActive = true;
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+        inputThrusting = false;
+        inputLandingActive = false;
+        fetchSimulation(true);
+    });
+
+    window.onload = () => fetchSimulation(true);
+</script>
+{% endblock %}
