@@ -11,8 +11,7 @@ _cached_rocket = None
 def _precompute_rocket():
     global _cached_frames, _cached_rocket
     print("Pre-computing initial rocket landing frames...")
-    engine = RocketLandingEngine(initial_pos=[2.0, 1.0], initial_vel=[0.0, 0.0])
-    # Compute initial baseline down-drop trail cleanly
+    engine = RocketLandingEngine(initial_pos=[2.0, 1.1], initial_vel=[0.0, 0.0])
     _cached_frames = engine.run_simulation(total_frames=120, thrusting=False, landing=False)
     _cached_rocket = engine
     print("Rocket pre-computation complete!")
@@ -37,9 +36,8 @@ def simulate_rocket():
             return jsonify({"status": "success", "frames": _cached_frames})
 
         if _active_rocket is None or reset_requested:
-            _active_rocket = RocketLandingEngine(initial_pos=[2.0, 1.0], initial_vel=[0.0, 0.0])
+            _active_rocket = RocketLandingEngine(initial_pos=[2.0, 1.1], initial_vel=[0.0, 0.0])
         
-        # FIX: Drop frames generated down to 1 so the frontend UI can stream real-time choices
         frames_data = _active_rocket.run_simulation(
             total_frames=1, 
             thrusting=thrusting, 

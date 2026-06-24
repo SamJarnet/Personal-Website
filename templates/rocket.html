@@ -46,7 +46,7 @@
 <div class="content-wrapper">
     <div class="container-fluid px-4">
         <div class="text-center mb-4">
-            <h1 class="section-title">Retro-Rocket Suicide Burn Simulation</h1>
+            <h1 class="section-title">Suicide Burn Simulation</h1>
         </div>
 
         <div class="row align-items-start g-4">
@@ -82,7 +82,7 @@
 
                     <div class="d-flex gap-2 flex-column">
                         <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Hold Manual Thrust (W)</button>
-                        <button class="btn btn-success w-100 text-uppercase" id="landBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Suicide Burn</button>
+                        <button class="btn btn-success w-100 text-uppercase" id="landBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Guided Landing</button>
                         <hr style="border-color: #30363d;">
                         <button class="btn btn-primary w-100 text-uppercase" id="resetBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Reset Simulation</button>
                     </div>
@@ -96,7 +96,8 @@
     const canvas = document.getElementById("rocketCanvas");
     const ctx = canvas.getContext("2d");
     
-    const MAP_SIZE = 10.0; 
+    const MAP_SIZE_X = 10.0; 
+    const MAP_SIZE_Y = 30.0; 
 
     let animationFrames = [];
     let animationIntervalId = null;
@@ -141,41 +142,60 @@
     }
 
     function drawRocket(x, y, angle, metrics) {
+    // --- 1. Draw Upward-Facing Rocket Body ---
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // Change body color if auto-pilot lander takes over tracking control
+    ctx.fillStyle = metrics.landing_burn ? "#2ea043" : "#c9d1d9";
+    
+    ctx.beginPath();
+    ctx.moveTo(0, -18);   // Nosecone pointing straight up
+    ctx.lineTo(-10, 14);  // Left fin base
+    ctx.lineTo(0, 9);     // Thruster nozzle mount point
+    ctx.lineTo(10, 14);   // Right fin base
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // --- 2. Draw Flame Pointing in Direction of Thrust Vector ---
+    if (metrics.thrusting || metrics.landing_burn) {
         ctx.save();
-        ctx.translate(x, y);
-        // Correcting base asset alignment so rocket points skyward relative to vector orientation
-        ctx.rotate(angle - Math.PI / 2);
+        // Position origin exactly at the rocket's thruster nozzle center base
+        ctx.translate(x, y + 9);
         
-        ctx.fillStyle = metrics.landing_burn ? "#2ea043" : "#c9d1d9";
+        // FIX: Added a negative sign to the angle to match HTML5 Canvas's 
+        // clockwise coordinate rendering style with the engine's counter-clockwise math
+        ctx.rotate(-angle);
         
+        ctx.fillStyle = "#ff5500";
         ctx.beginPath();
-        ctx.moveTo(0, -18);
-        ctx.lineTo(-10, 14);
-        ctx.lineTo(0, 9); 
-        ctx.lineTo(10, 14);
+        ctx.moveTo(-4, 0);
+        ctx.lineTo(0, 20); // Extends downward relative to rotation angle
+        ctx.lineTo(4, 0);
         ctx.closePath();
         ctx.fill();
-
-        if (metrics.thrusting || metrics.landing_burn) {
-            ctx.fillStyle = "#ff5500";
-            ctx.beginPath();
-            ctx.moveTo(-4, 10);
-            ctx.lineTo(0, 25);
-            ctx.lineTo(4, 10);
-            ctx.closePath();
-            ctx.fill();
-        }
         ctx.restore();
     }
+}
 
-    function drawEnvironment() {
-        const groundY = (1.0 - 1.0 / MAP_SIZE) * canvas.height;
+    function drawEnvironment(frame) {
+        const groundY = (1.0 - 1.0 / MAP_SIZE_Y) * canvas.height;
         ctx.strokeStyle = "#58a6ff";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, groundY);
         ctx.lineTo(canvas.width, groundY);
         ctx.stroke();
+
+        if (frame && frame.landing_pad_x) {
+            const padX = (frame.landing_pad_x / MAP_SIZE_X) * canvas.width;
+            const padY = (1.0 - frame.landing_pad_y / MAP_SIZE_Y) * canvas.height;
+            ctx.fillStyle = "#da3633";
+            ctx.beginPath();
+            ctx.arc(padX, padY, 10, 0, 2 * Math.PI);
+            ctx.fill();
+        }
     }
 
     function playFrame() {
@@ -186,10 +206,10 @@
         ctx.fillStyle = "#0d1117";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        drawEnvironment();
+        drawEnvironment(currentFrame);
 
-        const webX = (currentFrame.x / MAP_SIZE) * canvas.width;
-        const webY = (1.0 - currentFrame.y / MAP_SIZE) * canvas.height;
+        const webX = (currentFrame.x / MAP_SIZE_X) * canvas.width;
+        const webY = (1.0 - currentFrame.y / MAP_SIZE_Y) * canvas.height;
 
         document.getElementById("altVal").innerText = currentFrame.y.toFixed(2);
         document.getElementById("velYVal").innerText = currentFrame.metrics.vy.toFixed(3);
@@ -201,7 +221,7 @@
         } else if (currentFrame.metrics.landing_burn) {
             document.getElementById("systemStatus").className = "";
             document.getElementById("systemStatus").style.color = "#ff5500";
-            document.getElementById("systemStatus").innerText = "SUICIDE BURN";
+            document.getElementById("systemStatus").innerText = "GUIDED BURN";
         } else {
             document.getElementById("systemStatus").className = "";
             document.getElementById("systemStatus").style.color = "#2ea043";
@@ -210,7 +230,6 @@
 
         drawRocket(webX, webY, currentFrame.angle, currentFrame.metrics);
 
-        // FIX: Ask for individual frames in near real-time context loops
         if (animationFrames.length < 2) {
             fetchSimulation(false);
         }
