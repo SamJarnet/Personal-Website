@@ -81,6 +81,7 @@
                     </div>
 
                     <div class="d-flex gap-2 flex-column">
+                        <div class="text-muted small text-center mb-1">Controls: W (Thrust) | A / D (Rotate)</div>
                         <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Hold Manual Thrust (W)</button>
                         <button class="btn btn-success w-100 text-uppercase" id="landBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Guided Landing</button>
                         <hr style="border-color: #30363d;">
@@ -104,6 +105,8 @@
     let isFetching = false;
     
     let inputThrusting = false;
+    let inputTurnLeft = false;
+    let inputTurnRight = false;
     let inputLandingActive = false;
 
     async function fetchSimulation(isReset = false) {
@@ -113,6 +116,8 @@
         const payload = {
             reset: isReset,
             thrusting: inputThrusting,
+            turn_left: inputTurnLeft,
+            turn_right: inputTurnRight,
             landing: inputLandingActive
         };
 
@@ -142,42 +147,33 @@
     }
 
     function drawRocket(x, y, angle, metrics) {
-    // --- 1. Draw Upward-Facing Rocket Body ---
-    ctx.save();
-    ctx.translate(x, y);
-    
-    // Change body color if auto-pilot lander takes over tracking control
-    ctx.fillStyle = metrics.landing_burn ? "#2ea043" : "#c9d1d9";
-    
-    ctx.beginPath();
-    ctx.moveTo(0, -18);   // Nosecone pointing straight up
-    ctx.lineTo(-10, 14);  // Left fin base
-    ctx.lineTo(0, 9);     // Thruster nozzle mount point
-    ctx.lineTo(10, 14);   // Right fin base
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // --- 2. Draw Flame Pointing in Direction of Thrust Vector ---
-    if (metrics.thrusting || metrics.landing_burn) {
         ctx.save();
-        // Position origin exactly at the rocket's thruster nozzle center base
-        ctx.translate(x, y + 9);
+        ctx.translate(x, y);
+        // Canvas uses clockwise rotations; coordinate with the engine's angle 
+        ctx.rotate(angle);
         
-        // FIX: Added a negative sign to the angle to match HTML5 Canvas's 
-        // clockwise coordinate rendering style with the engine's counter-clockwise math
-        ctx.rotate(-angle);
-        
-        ctx.fillStyle = "#ff5500";
+        // --- 1. Draw Rocket Hull ---
+        ctx.fillStyle = (metrics.landing_burn || metrics.landing) ? "#2ea043" : "#c9d1d9";
         ctx.beginPath();
-        ctx.moveTo(-4, 0);
-        ctx.lineTo(0, 20); // Extends downward relative to rotation angle
-        ctx.lineTo(4, 0);
+        ctx.moveTo(0, -18);   // Nosecone pointing up
+        ctx.lineTo(-10, 14);  // Left fin base
+        ctx.lineTo(0, 9);     // Base center
+        ctx.lineTo(10, 14);   // Right fin base
         ctx.closePath();
         ctx.fill();
+
+        // --- 2. Draw Flame Thruster Extrusion ---
+        if (metrics.thrusting || metrics.landing_burn) {
+            ctx.fillStyle = "#ff5500";
+            ctx.beginPath();
+            ctx.moveTo(-4, 9);
+            ctx.lineTo(0, 26); // Shoots directly out from bottom base
+            ctx.lineTo(4, 9);
+            ctx.closePath();
+            ctx.fill();
+        }
         ctx.restore();
     }
-}
 
     function drawEnvironment(frame) {
         const groundY = (1.0 - 1.0 / MAP_SIZE_Y) * canvas.height;
@@ -222,6 +218,10 @@
             document.getElementById("systemStatus").className = "";
             document.getElementById("systemStatus").style.color = "#ff5500";
             document.getElementById("systemStatus").innerText = "GUIDED BURN";
+        } else if (currentFrame.metrics.landing) {
+            document.getElementById("systemStatus").className = "";
+            document.getElementById("systemStatus").style.color = "#58a6ff";
+            document.getElementById("systemStatus").innerText = "GUIDANCE ENGAGED";
         } else {
             document.getElementById("systemStatus").className = "";
             document.getElementById("systemStatus").style.color = "#2ea043";
@@ -241,15 +241,17 @@
     }
 
     window.addEventListener("keydown", (e) => {
-        if (e.key.toLowerCase() === 'w') {
-            inputThrusting = true;
-        }
+        const key = e.key.toLowerCase();
+        if (key === 'w') inputThrusting = true;
+        if (key === 'a') inputTurnLeft = true;
+        if (key === 'd') inputTurnRight = true;
     });
 
     window.addEventListener("keyup", (e) => {
-        if (e.key.toLowerCase() === 'w') {
-            inputThrusting = false;
-        }
+        const key = e.key.toLowerCase();
+        if (key === 'w') inputThrusting = false;
+        if (key === 'a') inputTurnLeft = false;
+        if (key === 'd') inputTurnRight = false;
     });
 
     document.getElementById("thrustBtn").addEventListener("mousedown", () => inputThrusting = true);
@@ -262,6 +264,8 @@
 
     document.getElementById("resetBtn").addEventListener("click", () => {
         inputThrusting = false;
+        inputTurnLeft = false;
+        inputTurnRight = false;
         inputLandingActive = false;
         fetchSimulation(true);
     });
