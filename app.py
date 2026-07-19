@@ -1,4 +1,5 @@
 import os
+import sys
 from flask import Flask, render_template
 from routes.trading_routes import trading_bp
 from routes.boids_routes import boids_bp
@@ -7,21 +8,27 @@ from routes.mp3_routes import mp3_bp
 from routes.rl_routes import rl_bp
 from routes.rocket_routes import rocket_bp
 
-
-app = Flask(__name__, static_url_path='/assets')
+# --- DUAL-PURPOSE PATH ROUTING ---
+if getattr(sys, 'frozen', False):
+    # 1. Inside the Executable: Use PyInstaller's temporary folder
+    base_dir = sys._MEIPASS
+    template_folder = os.path.join(base_dir, 'templates')
+    static_folder = os.path.join(base_dir, 'static')
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder, static_url_path='/assets')
+else:
+    # 2. Normal Website Mode: Keeps your exact original setup
+    app = Flask(__name__, static_url_path='/assets')
 
 # --- PRESERVING SECURITY SIGNATURE FOR SESSIONS ---
-# This unlocks Flask's internal session configuration so your login manager works
-app.secret_key = os.urandom(24) 
+app.secret_key = os.environ.get("SECRET_KEY")
 
-# Register blueprints WITHOUT URL prefixes
+# Register blueprints
 app.register_blueprint(trading_bp)
 app.register_blueprint(boids_bp)
 app.register_blueprint(motion_bp)
 app.register_blueprint(mp3_bp)
 app.register_blueprint(rl_bp)
 app.register_blueprint(rocket_bp)
-
 
 @app.route("/")
 def home():
@@ -35,12 +42,12 @@ def projects():
 def about():
     return render_template("about.html")
 
+# --- THIS KEEPS YOUR WEBSITE SERVER RUNNABLE ---
 if __name__ == "__main__":
     import sys
     host = "0.0.0.0"
     port = 5000
 
-    # Optional: parse host and port from command line arguments
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
@@ -50,4 +57,5 @@ if __name__ == "__main__":
     host = args.host
     port = args.port
 
+    # Launches the normal Flask development server with reloaders enabled
     app.run(host=host, port=port, debug=True)

@@ -29,7 +29,7 @@ TICKERS_FILE = "tickers.txt"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 STAT_KEYS = [
-    "currentPrice", "previousClose", "open", "dayLow", "dayHigh",
+    "longBusinessSummary", "currentPrice", "previousClose", "open", "dayLow", "dayHigh",
     "fiftyTwoWeekLow", "fiftyTwoWeekHigh", "trailingPE", "forwardPE", 
     "priceToBook", "priceToSalesTrailing12Months", "enterpriseToEbitda", 
     "marketCap", "enterpriseValue", "freeCashflow", "operatingCashflow", 

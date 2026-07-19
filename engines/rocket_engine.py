@@ -68,7 +68,7 @@ class RocketLandingEngine:
 
         # Vertical suicide burn execution matching land() trigger criteria
         landing_burn_active = self.land()
-        if landing_burn_active:
+        if landing_burn_active and self.landing:
             self.thrust(self.rocket["angle"])
 
         # Update gravity and position
