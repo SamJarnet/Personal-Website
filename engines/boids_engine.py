@@ -42,24 +42,25 @@ class ContextualBandit:
         return 0
 
     def pull(self, action):
+        step_size = 0.005
         if action == 0:
-            self.env.cohesion_strength = min(0.2, self.env.cohesion_strength + 0.002)
+            self.env.cohesion_strength = min(0.5, self.env.cohesion_strength + step_size)
         elif action == 1:
-            self.env.cohesion_strength = max(0.0, self.env.cohesion_strength - 0.002)
+            self.env.cohesion_strength = max(0.0, self.env.cohesion_strength - step_size)
         elif action == 2:
-            self.env.seperation_strength = min(0.5, self.env.seperation_strength + 0.002) # seperate into 6 actions for more specific changes
+            self.env.seperation_strength = min(0.1, self.env.seperation_strength + step_size)
         elif action == 3:
-            self.env.seperation_strength = max(0.0, self.env.seperation_strength - 0.002)
+            self.env.seperation_strength = max(0.0, self.env.seperation_strength - step_size)
         elif action == 4:
-            self.env.alignment_strength = min(0.2, self.env.alignment_strength + 0.002)
+            self.env.alignment_strength = min(0.1, self.env.alignment_strength + step_size)
         elif action == 5:
-            self.env.alignment_strength = max(0.0, self.env.alignment_strength - 0.002)
+            self.env.alignment_strength = max(0.0, self.env.alignment_strength - step_size)
 
     def thomson_sample(self, context):
         P = [0.0] * self.action_count
         for j in range(0, self.action_count):
             P[j] = np.random.beta(self.alpha[context][j], self.beta[context][j])
-        return( np.argmax(P))
+        return np.argmax(P)
     
     def update(self, context, action, dist_before, dist_after):
         reward = self.get_reward(context, dist_before, dist_after)
@@ -76,7 +77,6 @@ class ContextualBandit:
 
         self._decay_counts()
 
-    # Gemini made this function, it changes the values less overtime as it finds the correct ones
     def _decay_counts(self):
         for c in self.contexts:
             for j in range(self.action_count):
@@ -104,12 +104,6 @@ class Boids:
         # Instantiate contextual RL layer
         self.bandit = ContextualBandit(self)
 
-        # Bandit decisions are made every bandit_K frames, not every frame —
-        # a single 0.1s step is too short/noisy a horizon to attribute a
-        # change in spacing to a 0.002-sized parameter nudge versus ordinary
-        # boid motion or groups merging/splitting. frame_count persists on
-        # self so this works correctly whether step() is driven through
-        # run_simulation()'s loop or called directly per request/tick.
         self.bandit_K = 20
         self.bandit_window = []
         self.pending_action = None
@@ -127,9 +121,6 @@ class Boids:
             if pos_y >= self.y_width: self.boids[i]["pos"][1] = 0
 
     def _pairwise_distance_matrix(self):
-        """Vectorized (n,n) matrix of distances between every boid pair.
-        Replaces the old nested-loop + per-pair np.linalg.norm() calls,
-        which dominated frame cost (O(n^2) Python-level numpy calls)."""
         positions = np.array([b["pos"] for b in self.boids])
         diff = positions[:, None, :] - positions[None, :, :]
         return np.linalg.norm(diff, axis=-1)
@@ -231,10 +222,6 @@ class Boids:
     def step(self, run_learning=False):
         self.check_boundaries()
 
-        # RL decision point: only fires every bandit_K frames. When a
-        # window closes, score the *previous* action on the average
-        # distance over the whole window it ran for, then pick + apply
-        # the next action.
         if run_learning:
             if self.frame_count % self.bandit_K == 0:
                 if self.pending_action is not None:
@@ -250,10 +237,6 @@ class Boids:
                 self.bandit_window = []
 
         groups, in_group = self.find_groups()
-        # O(1) lookup of which group each boid belongs to, instead of the
-        # old "if boid in group" linear scan across every group for every
-        # boid (an accidental O(n^2) in the force functions on top of the
-        # grouping cost itself).
         boid_to_group = {b: gi for gi, group in enumerate(groups) for b in group}
         group_avg_pos = self.find_average(groups, "pos")
         group_avg_vel = self.find_average(groups, "vel")
@@ -267,7 +250,6 @@ class Boids:
             self.cap_speed(i)
             self.boids[i]["pos"] += self.boids[i]["vel"] * self.dt
 
-        # RL: feed this frame's resulting distance into the open window
         if run_learning:
             self.bandit_window.append(self.find_distances())
             self.frame_count += 1
@@ -297,7 +279,6 @@ class Boids:
             history.append({
                 "boids": boids_data,
                 "centers": centers_data,
-                # Package updated system parameters down to the web client framework
                 "metrics": {
                     "cohesion": float(self.cohesion_strength),
                     "separation": float(self.seperation_strength),

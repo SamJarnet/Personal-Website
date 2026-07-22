@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Rocket Suicide Burn Simulation{% endblock %}
+{% block title %}Rocket Landing Simulation{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -46,19 +46,27 @@
 <div class="content-wrapper">
     <div class="container-fluid px-4">
         <div class="text-center mb-4">
-            <h1 class="section-title">Suicide Burn Simulation</h1>
+            <h1 class="section-title">Rocket Landing Simulation (WIP)</h1>
         </div>
 
         <div class="row align-items-start g-4">
-            <div class="col-xl-9 col-lg-8 canvas-container">
-                <canvas id="rocketCanvas" width="800" height="800"></canvas>
+            <div class="col-xl-8 col-lg-7 canvas-container">
+                <canvas id="rocketCanvas" width="500" height="800"></canvas>
             </div>
             
-            <div class="col-xl-3 col-lg-4">
-                <div id="controlBox" class="section-box" style="margin-bottom: 0;">
-                    <h3 class="mb-3" style="font-size: 1.25rem;">Telemetry & Systems</h3>
+            <div class="col-xl-4 col-lg-5">
+                <!-- Telemetry & Systems Box -->
+                <div id="controlBox" class="section-box p-4 bg-dark rounded border border-secondary">
+                    <h3 class="mb-3 fs-5 text-light">Telemetry & Systems</h3>
                     <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
                     
+                    <div class="mb-2">
+                        <div class="telemetry-row">
+                            <span>Control Status:</span>
+                            <span id="actionVal" class="value-counter">HUMAN MANUAL PILOT</span>
+                        </div>
+                    </div>
+
                     <div class="mb-2">
                         <div class="telemetry-row">
                             <span>Altitude (Y):</span>
@@ -82,10 +90,31 @@
 
                     <div class="d-flex gap-2 flex-column">
                         <div class="text-muted small text-center mb-1">Controls: W (Thrust) | A / D (Rotate)</div>
-                        <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Hold Manual Thrust (W)</button>
-                        <button class="btn btn-success w-100 text-uppercase" id="landBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Guided Landing</button>
-                        <hr style="border-color: #30363d;">
+                        
+                        <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Hold Thrust (W)</button>
+                        <button class="btn btn-info w-100 text-uppercase fw-bold" id="tradBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Traditional Guidance</button>
+                        <button class="btn btn-success w-100 text-uppercase fw-bold" id="aiBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage PyTorch AI</button>
+                        <hr style="border-color: #30363d; margin: 8px 0;">
                         <button class="btn btn-primary w-100 text-uppercase" id="resetBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Reset Simulation</button>
+                    </div>
+                </div>
+
+                <!-- How It Works & Credits Text Box -->
+                <div class="section-box p-4 bg-dark rounded border border-secondary mt-4" style="max-height: 300px; overflow-y: auto;">
+                    <h3 class="mb-3 fs-5 text-light">How It Works & Credits</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 16px;">
+                    
+                    <div class="text-muted small">
+                        <p class="mb-2 text-light">
+                            <strong>Project Help</strong><br>
+                            Switch to PyTorch AI mode for the pretrained landing setting. The traditional guidance uses a simple PID controller.
+                        </p>
+                        
+                        <p class="mb-0 border-top border-secondary pt-2 text-light">
+                            <strong>Source:</strong><br>
+                            I used the tutorial on the official PyTorch website to create my Deep Q Learning Agent to complete a safe landing at the landing pad. The code is largely similar and was very helpful to learn the basics of PyTorch.
+                            <a href="https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html" target="_blank" class="text-info text-decoration-underline">Official PyTorch Reinforcement Learning (DQN) Tutorial</a>.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -98,27 +127,25 @@
     const ctx = canvas.getContext("2d");
     
     const MAP_SIZE_X = 10.0; 
-    const MAP_SIZE_Y = 30.0; 
+    const MAP_SIZE_Y = 20.0; 
 
-    let animationFrames = [];
-    let animationIntervalId = null;
-    let isFetching = false;
-    
-    let inputThrusting = false;
-    let inputTurnLeft = false;
-    let inputTurnRight = false;
-    let inputLandingActive = false;
+    let currentMode = "manual"; 
+    let keys = { w: false, a: false, d: false };
 
-    async function fetchSimulation(isReset = false) {
-        if (isFetching && !isReset) return; 
-        isFetching = true;
+    function getManualAction() {
+        if (keys.w && keys.a) return 4;
+        if (keys.w && keys.d) return 5;
+        if (keys.w) return 1;
+        if (keys.a) return 2;
+        if (keys.d) return 3;
+        return 0;
+    }
 
+    async function stepSimulation(isReset = false) {
         const payload = {
             reset: isReset,
-            thrusting: inputThrusting,
-            turn_left: inputTurnLeft,
-            turn_right: inputTurnRight,
-            landing: inputLandingActive
+            mode: currentMode,
+            action: getManualAction()
         };
 
         try {
@@ -130,44 +157,36 @@
             const data = await response.json();
             
             if (data.status === "success") {
-                if (isReset) {
-                    animationFrames = data.frames;
-                    startPlayback();
-                } else {
-                    animationFrames = animationFrames.concat(data.frames);
-                }
+                renderFrame(data.frame);
             } else {
                 console.error("Backend Physics Engine Error:", data.error);
             }
         } catch (err) {
             console.error("Network communication failure:", err);
-        } finally {
-            isFetching = false;
         }
     }
 
-    function drawRocket(x, y, angle, metrics) {
+    function drawRocket(x, y, angle, thrusting) {
         ctx.save();
         ctx.translate(x, y);
-        // Canvas uses clockwise rotations; coordinate with the engine's angle 
-        ctx.rotate(angle);
+        ctx.rotate(-angle);
         
-        // --- 1. Draw Rocket Hull ---
-        ctx.fillStyle = (metrics.landing_burn || metrics.landing) ? "#2ea043" : "#c9d1d9";
+        // Rocket Hull
+        ctx.fillStyle = "#c9d1d9";
         ctx.beginPath();
-        ctx.moveTo(0, -18);   // Nosecone pointing up
-        ctx.lineTo(-10, 14);  // Left fin base
-        ctx.lineTo(0, 9);     // Base center
-        ctx.lineTo(10, 14);   // Right fin base
+        ctx.moveTo(0, -18);
+        ctx.lineTo(-10, 14);
+        ctx.lineTo(0, 9);
+        ctx.lineTo(10, 14);
         ctx.closePath();
         ctx.fill();
 
-        // --- 2. Draw Flame Thruster Extrusion ---
-        if (metrics.thrusting || metrics.landing_burn) {
+        // Thruster Flame
+        if (thrusting) {
             ctx.fillStyle = "#ff5500";
             ctx.beginPath();
             ctx.moveTo(-4, 9);
-            ctx.lineTo(0, 26); // Shoots directly out from bottom base
+            ctx.lineTo(0, 26);
             ctx.lineTo(4, 9);
             ctx.closePath();
             ctx.fill();
@@ -184,9 +203,9 @@
         ctx.lineTo(canvas.width, groundY);
         ctx.stroke();
 
-        if (frame && frame.landing_pad_x) {
-            const padX = (frame.landing_pad_x / MAP_SIZE_X) * canvas.width;
-            const padY = (1.0 - frame.landing_pad_y / MAP_SIZE_Y) * canvas.height;
+        if (frame && frame.landing_pad) {
+            const padX = (frame.landing_pad[0] / MAP_SIZE_X) * canvas.width;
+            const padY = (1.0 - frame.landing_pad[1] / MAP_SIZE_Y) * canvas.height;
             ctx.fillStyle = "#da3633";
             ctx.beginPath();
             ctx.arc(padX, padY, 10, 0, 2 * Math.PI);
@@ -194,82 +213,72 @@
         }
     }
 
-    function playFrame() {
-        if (animationFrames.length === 0) return;
-        
-        const currentFrame = animationFrames.shift();
-        
+    function renderFrame(frame) {
         ctx.fillStyle = "#0d1117";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        drawEnvironment(currentFrame);
+        drawEnvironment(frame);
 
-        const webX = (currentFrame.x / MAP_SIZE_X) * canvas.width;
-        const webY = (1.0 - currentFrame.y / MAP_SIZE_Y) * canvas.height;
+        const webX = (frame.x / MAP_SIZE_X) * canvas.width;
+        const webY = (1.0 - frame.y / MAP_SIZE_Y) * canvas.height;
 
-        document.getElementById("altVal").innerText = currentFrame.y.toFixed(2);
-        document.getElementById("velYVal").innerText = currentFrame.metrics.vy.toFixed(3);
+        document.getElementById("altVal").innerText = frame.y.toFixed(2);
+        document.getElementById("velYVal").innerText = frame.vy.toFixed(3);
+        document.getElementById("actionVal").innerText = frame.action_name;
 
-        if (currentFrame.exploded) {
-            document.getElementById("systemStatus").className = "status-alert";
-            document.getElementById("systemStatus").style.color = "#da3633";
-            document.getElementById("systemStatus").innerText = "CRITICAL BOOM";
-        } else if (currentFrame.metrics.landing_burn) {
-            document.getElementById("systemStatus").className = "";
-            document.getElementById("systemStatus").style.color = "#ff5500";
-            document.getElementById("systemStatus").innerText = "GUIDED BURN";
-        } else if (currentFrame.metrics.landing) {
-            document.getElementById("systemStatus").className = "";
-            document.getElementById("systemStatus").style.color = "#58a6ff";
-            document.getElementById("systemStatus").innerText = "GUIDANCE ENGAGED";
+        const statusEl = document.getElementById("systemStatus");
+        if (frame.crashed) {
+            statusEl.className = "status-alert";
+            statusEl.style.color = "#da3633";
+            statusEl.innerText = "CRITICAL BOOM";
+        } else if (frame.landed) {
+            statusEl.className = "";
+            statusEl.style.color = "#2ea043";
+            statusEl.innerText = "TOUCHDOWN SUCCESSFUL";
         } else {
-            document.getElementById("systemStatus").className = "";
-            document.getElementById("systemStatus").style.color = "#2ea043";
-            document.getElementById("systemStatus").innerText = "NOMINAL";
+            statusEl.className = "";
+            statusEl.style.color = "#2ea043";
+            statusEl.innerText = "NOMINAL FLIGHT";
         }
 
-        drawRocket(webX, webY, currentFrame.angle, currentFrame.metrics);
-
-        if (animationFrames.length < 2) {
-            fetchSimulation(false);
-        }
-    }
-
-    function startPlayback() {
-        if (animationIntervalId) clearInterval(animationIntervalId);
-        animationIntervalId = setInterval(playFrame, 20);
+        drawRocket(webX, webY, frame.angle, frame.thrusting);
     }
 
     window.addEventListener("keydown", (e) => {
         const key = e.key.toLowerCase();
-        if (key === 'w') inputThrusting = true;
-        if (key === 'a') inputTurnLeft = true;
-        if (key === 'd') inputTurnRight = true;
+        if (key === 'w' || key === 'a' || key === 'd') {
+            keys[key] = true;
+            currentMode = "manual";
+        }
     });
 
     window.addEventListener("keyup", (e) => {
         const key = e.key.toLowerCase();
-        if (key === 'w') inputThrusting = false;
-        if (key === 'a') inputTurnLeft = false;
-        if (key === 'd') inputTurnRight = false;
+        if (key in keys) keys[key] = false;
     });
 
-    document.getElementById("thrustBtn").addEventListener("mousedown", () => inputThrusting = true);
-    document.getElementById("thrustBtn").addEventListener("mouseup", () => inputThrusting = false);
-    document.getElementById("thrustBtn").addEventListener("mouseleave", () => inputThrusting = false);
-    
-    document.getElementById("landBtn").addEventListener("click", () => {
-        inputLandingActive = true;
+    document.getElementById("thrustBtn").addEventListener("mousedown", () => {
+        keys.w = true;
+        currentMode = "manual";
+    });
+    document.getElementById("thrustBtn").addEventListener("mouseup", () => keys.w = false);
+    document.getElementById("thrustBtn").addEventListener("mouseleave", () => keys.w = false);
+
+    document.getElementById("tradBtn").addEventListener("click", () => {
+        currentMode = "traditional";
+    });
+
+    document.getElementById("aiBtn").addEventListener("click", () => {
+        currentMode = "ai";
     });
 
     document.getElementById("resetBtn").addEventListener("click", () => {
-        inputThrusting = false;
-        inputTurnLeft = false;
-        inputTurnRight = false;
-        inputLandingActive = false;
-        fetchSimulation(true);
+        keys = { w: false, a: false, d: false };
+        currentMode = "manual";
+        stepSimulation(true);
     });
 
-    window.onload = () => fetchSimulation(true);
+    setInterval(() => stepSimulation(false), 33);
+    window.onload = () => stepSimulation(true);
 </script>
 {% endblock %}

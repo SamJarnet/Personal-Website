@@ -38,7 +38,6 @@
         border-color: #3971a5;
     }
     
-    /* Highlight system styling for the active learning status */
     .learning-active {
         border-color: #00a884 !important;
         box-shadow: 0 0 10px rgba(0, 168, 132, 0.2);
@@ -63,6 +62,12 @@
                     <h3 class="mb-3" style="font-size: 1.25rem;">Simulation Parameters</h3>
                     <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
                     
+                    <!-- Engine Selection Control -->
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm active fw-bold" id="btnPython">Python Backend</button>
+                        <button type="button" class="btn btn-outline-info btn-sm fw-bold" id="btnWasm">C (WebAssembly)</button>
+                    </div>
+
                     <div class="mb-3">
                         <div class="slider-header">
                             <span>Population Size</span>
@@ -121,68 +126,252 @@
     let boidCount = parseInt(document.getElementById("boidCountSlider").value) || 50;
     const MAP_WIDTH = canvas.width;
     const MAP_HEIGHT = canvas.height;
+    const PYTHON_MAP_SIZE = 25.0;
 
-    // Connect real-time UI text value updates to the updated slider spaces
-    document.getElementById("boidCountSlider").addEventListener("input", (e) => {
-        document.getElementById("boidCountVal").textContent = e.target.value;
-    });
-    document.getElementById("cohesionSlider").addEventListener("input", (e) => {
-        document.getElementById("cohesionVal").textContent = parseFloat(e.target.value).toFixed(3);
-    });
-    document.getElementById("separationSlider").addEventListener("input", (e) => {
-        document.getElementById("separationVal").textContent = parseFloat(e.target.value).toFixed(1);
-    });
-    document.getElementById("alignmentSlider").addEventListener("input", (e) => {
-        document.getElementById("alignmentVal").textContent = parseFloat(e.target.value).toFixed(2);
+    let engineMode = "python";
+    
+    const ENGINE_CONFIGS = {
+        wasm: {
+            cohesion:   { min: "0", max: "2.0",   step: "0.01",  value: "0.500", decimals: 3 },
+            separation: { min: "0", max: "300.0", step: "1.0",   value: "150.0", decimals: 1 },
+            alignment:  { min: "0", max: "5.0",   step: "0.05",  value: "1.50",  decimals: 2 }
+        },
+        python: {
+            cohesion:   { min: "0", max: "0.500", step: "0.001", value: "0.134", decimals: 3 },
+            separation: { min: "0", max: "0.100", step: "0.001", value: "0.045", decimals: 3 },
+            alignment:  { min: "0", max: "0.100", step: "0.001", value: "0.038", decimals: 3 }
+        }
+    };
+
+    let initSimulation, stepSimulation, getBoidsBuffer;
+    const BOID_STRUCT_SIZE = 20;
+
+    let pythonFrames = [];
+    let pythonFrameIndex = 0;
+    let isFetchingPython = false;
+    let isPrefetching = false;
+
+    const cohesionSlider = document.getElementById("cohesionSlider");
+    const separationSlider = document.getElementById("separationSlider");
+    const alignmentSlider = document.getElementById("alignmentSlider");
+    const boidCountSlider = document.getElementById("boidCountSlider");
+
+    const cohesionValEl = document.getElementById("cohesionVal");
+    const separationValEl = document.getElementById("separationVal");
+    const alignmentValEl = document.getElementById("alignmentVal");
+    const boidCountValEl = document.getElementById("boidCountVal");
+
+    boidCountSlider.addEventListener("input", (e) => {
+        boidCountValEl.textContent = e.target.value;
     });
 
-    // Wait for the WebAssembly runtime to be ready
+    cohesionSlider.addEventListener("input", (e) => {
+        const decimals = ENGINE_CONFIGS[engineMode].cohesion.decimals;
+        cohesionValEl.textContent = parseFloat(e.target.value).toFixed(decimals);
+    });
+
+    separationSlider.addEventListener("input", (e) => {
+        const decimals = ENGINE_CONFIGS[engineMode].separation.decimals;
+        separationValEl.textContent = parseFloat(e.target.value).toFixed(decimals);
+    });
+
+    alignmentSlider.addEventListener("input", (e) => {
+        const decimals = ENGINE_CONFIGS[engineMode].alignment.decimals;
+        alignmentValEl.textContent = parseFloat(e.target.value).toFixed(decimals);
+    });
+
+    function applyEngineConfig(mode) {
+        const config = ENGINE_CONFIGS[mode];
+
+        cohesionSlider.min = config.cohesion.min;
+        cohesionSlider.max = config.cohesion.max;
+        cohesionSlider.step = config.cohesion.step;
+        cohesionSlider.value = config.cohesion.value;
+        cohesionValEl.textContent = parseFloat(config.cohesion.value).toFixed(config.cohesion.decimals);
+
+        separationSlider.min = config.separation.min;
+        separationSlider.max = config.separation.max;
+        separationSlider.step = config.separation.step;
+        separationSlider.value = config.separation.value;
+        separationValEl.textContent = parseFloat(config.separation.value).toFixed(config.separation.decimals);
+
+        alignmentSlider.min = config.alignment.min;
+        alignmentSlider.max = config.alignment.max;
+        alignmentSlider.step = config.alignment.step;
+        alignmentSlider.value = config.alignment.value;
+        alignmentValEl.textContent = parseFloat(config.alignment.value).toFixed(config.alignment.decimals);
+    }
+
+    document.getElementById("btnWasm").addEventListener("click", () => {
+        setEngineMode("wasm");
+    });
+
+    document.getElementById("btnPython").addEventListener("click", () => {
+        setEngineMode("python");
+    });
+
+    function setEngineMode(mode) {
+        if (engineMode === mode) return;
+        engineMode = mode;
+        
+        applyEngineConfig(mode);
+
+        if (mode === "wasm") {
+            document.getElementById("btnWasm").classList.add("active");
+            document.getElementById("btnPython").classList.remove("active");
+            if (wasmInitialized) {
+                boidCount = parseInt(boidCountSlider.value) || 50;
+                initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
+            }
+        } else {
+            document.getElementById("btnPython").classList.add("active");
+            document.getElementById("btnWasm").classList.remove("active");
+            fetchPythonSimulation(true);
+        }
+    }
+
+    async function fetchPythonSimulation(reset = false) {
+        if (isFetchingPython) return;
+        isFetchingPython = true;
+
+        const boidCountVal = parseInt(boidCountSlider.value) || 50;
+        const cohesionVal = parseFloat(cohesionSlider.value);
+        const separationVal = parseFloat(separationSlider.value);
+        const alignmentVal = parseFloat(alignmentSlider.value);
+        const learningVal = document.getElementById("toggleLearning").checked;
+
+        try {
+            const response = await fetch("/api/boids/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    cohesion: cohesionVal,
+                    separation: separationVal,
+                    alignment: alignmentVal,
+                    boid_count: boidCountVal,
+                    reset: reset,
+                    learning: learningVal
+                })
+            });
+            const data = await response.json();
+            
+            if (data.status === "success" && data.frames && data.frames.length > 0) {
+                pythonFrames = data.frames;
+                pythonFrameIndex = 0;
+                isPrefetching = false; // Reset prefetch lock
+            }
+        } catch (err) {
+            console.error("Error communicating with Python boids API:", err);
+        } finally {
+            isFetchingPython = false;
+        }
+    }
+
     Module.onRuntimeInitialized = () => {
-        const initSimulation = Module.cwrap('init_simulation', null, ['number', 'number', 'number']);
-        const stepSimulation = Module.cwrap('step_simulation', null, ['number', 'number', 'number', 'number', 'number', 'number']);
-        const getBoidsBuffer = Module.cwrap('get_boids_buffer', 'number', []);
+        initSimulation = Module.cwrap('init_simulation', null, ['number', 'number', 'number']);
+        stepSimulation = Module.cwrap('step_simulation', null, ['number', 'number', 'number', 'number', 'number', 'number']);
+        getBoidsBuffer = Module.cwrap('get_boids_buffer', 'number', []);
 
-        initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
+        wasmInitialized = true;
+        applyEngineConfig(engineMode);
+
+        if (engineMode === "wasm") {
+            initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
+        } else {
+            fetchPythonSimulation(true);
+        }
 
         document.getElementById("runBtn").addEventListener("click", () => {
-            boidCount = parseInt(document.getElementById("boidCountSlider").value) || 50;
-            initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
+            boidCount = parseInt(boidCountSlider.value) || 50;
+            if (engineMode === "wasm") {
+                initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
+            } else {
+                fetchPythonSimulation(true);
+            }
         });
-
-        const BOID_STRUCT_SIZE = 20; 
 
         let lastTime = performance.now();
 
         function gameLoop(currentTime) {
             let dt = (currentTime - lastTime) / 1000;
             lastTime = currentTime;
-
             if (dt > 0.1) dt = 0.1;
-
-            // Use fallback assignments mapped directly to your preferred parameters
-            let separation = parseFloat(document.getElementById("separationSlider").value) || 150.0;
-            let cohesion = parseFloat(document.getElementById("cohesionSlider").value) || 0.5;
-            let alignment = parseFloat(document.getElementById("alignmentSlider").value) || 1.5;
-
-            stepSimulation(separation, cohesion, alignment, MAP_WIDTH, MAP_HEIGHT, dt);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const bufferPointer = getBoidsBuffer();
+            const showCenters = document.getElementById("toggleCenters").checked;
+            const isLearningActive = document.getElementById("toggleLearning").checked;
 
-            for (let i = 0; i < boidCount; i++) {
-                let currentBoidAddress = bufferPointer + (i * BOID_STRUCT_SIZE);
+            if (engineMode === "wasm") {
+                let separation = parseFloat(separationSlider.value) || 150.0;
+                let cohesion = parseFloat(cohesionSlider.value) || 0.5;
+                let alignment = parseFloat(alignmentSlider.value) || 1.5;
 
-                let x  = Module.getValue(currentBoidAddress, 'float');
-                let y  = Module.getValue(currentBoidAddress + 4, 'float');
-                let vx = Module.getValue(currentBoidAddress + 8, 'float');
-                let vy = Module.getValue(currentBoidAddress + 12, 'float');
-                let isGrouped = Module.getValue(currentBoidAddress + 16, 'i8');
+                stepSimulation(separation, cohesion, alignment, MAP_WIDTH, MAP_HEIGHT, dt);
 
-                if (isNaN(x) || isNaN(y)) continue;
+                const bufferPointer = getBoidsBuffer();
 
-                let angle = Math.atan2(vy, vx);
-                drawTriangle(x, y, angle, isGrouped ? "#3b8ad4" : "#c9d1d9");
+                for (let i = 0; i < boidCount; i++) {
+                    let currentBoidAddress = bufferPointer + (i * BOID_STRUCT_SIZE);
+
+                    let x  = Module.getValue(currentBoidAddress, 'float');
+                    let y  = Module.getValue(currentBoidAddress + 4, 'float');
+                    let vx = Module.getValue(currentBoidAddress + 8, 'float');
+                    let vy = Module.getValue(currentBoidAddress + 12, 'float');
+                    let isGrouped = Module.getValue(currentBoidAddress + 16, 'i8');
+
+                    if (isNaN(x) || isNaN(y)) continue;
+
+                    let angle = Math.atan2(vy, vx);
+                    drawTriangle(x, y, angle, isGrouped ? "#3b8ad4" : "#c9d1d9");
+                }
+            } else if (engineMode === "python") {
+                if (pythonFrames.length > 0) {
+                    let renderIdx = Math.min(pythonFrameIndex, pythonFrames.length - 1);
+                    const frame = pythonFrames[renderIdx];
+
+                    if (frame && frame.metrics && isLearningActive) {
+                        const decimals = ENGINE_CONFIGS.python.cohesion.decimals;
+                        
+                        cohesionSlider.value = frame.metrics.cohesion;
+                        cohesionValEl.textContent = frame.metrics.cohesion.toFixed(decimals);
+
+                        separationSlider.value = frame.metrics.separation;
+                        separationValEl.textContent = frame.metrics.separation.toFixed(decimals);
+
+                        alignmentSlider.value = frame.metrics.alignment;
+                        alignmentValEl.textContent = frame.metrics.alignment.toFixed(decimals);
+                    }
+
+                    if (frame && frame.boids) {
+                        for (let i = 0; i < frame.boids.length; i++) {
+                            const b = frame.boids[i];
+                            const canvasX = (b.x / PYTHON_MAP_SIZE) * canvas.width;
+                            const canvasY = (b.y / PYTHON_MAP_SIZE) * canvas.height;
+                            drawTriangle(canvasX, canvasY, b.angle, b.in_group ? "#3b8ad4" : "#c9d1d9");
+                        }
+                    }
+
+                    if (showCenters && frame && frame.centers) {
+                        ctx.fillStyle = "#ff5500";
+                        for (let c of frame.centers) {
+                            const cx = (c.x / PYTHON_MAP_SIZE) * canvas.width;
+                            const cy = (c.y / PYTHON_MAP_SIZE) * canvas.height;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+                            ctx.fill();
+                        }
+                    }
+
+                    if (pythonFrameIndex < pythonFrames.length - 1) {
+                        pythonFrameIndex++;
+                    }
+
+                    if (pythonFrameIndex >= Math.floor(pythonFrames.length * 0.8) && !isPrefetching && !isFetchingPython) {
+                        isPrefetching = true;
+                        fetchPythonSimulation(false);
+                    }
+                }
             }
 
             requestAnimationFrame(gameLoop);

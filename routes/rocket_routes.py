@@ -1,23 +1,33 @@
-import copy
+import os
+import torch
+import numpy as np
 from flask import Blueprint, jsonify, request, render_template
-from engines.rocket_engine import RocketLandingEngine
+
+from engines.physics import RocketPhysics
+from agent import RocketNetwork
 
 rocket_bp = Blueprint("rocket", __name__)
 
-_active_rocket = None
-_cached_frames = None
-_cached_rocket = None
+device = torch.device("cpu")
+STATE_DIM, ACTION_DIM = 6, 6
+MODEL_PATH = "rocket_dqn.pth"
 
-def _precompute_rocket():
-    global _cached_frames, _cached_rocket
-    print("Pre-computing initial rocket landing frames...")
-    # Spawn at high altitude by default
-    engine = RocketLandingEngine(initial_pos=[2.0, 25.0], initial_vel=[0.0, 0.0])
-    _cached_frames = engine.run_simulation(total_frames=1, thrusting=False, landing=False)
-    _cached_rocket = engine
-    print("Rocket pre-computation complete!")
+model = RocketNetwork(STATE_DIM, ACTION_DIM).to(device)
+if os.path.exists(MODEL_PATH):
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+    model.eval()
 
-_precompute_rocket()
+active_physics = RocketPhysics()
+
+def get_observation(physics):
+    return np.array([
+        physics.pos[0] / 10.0,
+        physics.pos[1] / 20.0,
+        physics.vel[0] / 5.0,
+        physics.vel[1] / 5.0,
+        physics.angle / np.pi,
+        physics.angular_vel / 2.0
+    ], dtype=np.float32)
 
 @rocket_bp.route("/rocket")
 def rocket_page():
@@ -25,33 +35,50 @@ def rocket_page():
 
 @rocket_bp.route("/api/rocket/simulate", methods=["POST"])
 def simulate_rocket():
-    global _active_rocket, _cached_frames, _cached_rocket
+    global active_physics
     try:
         body = request.get_json() or {}
-        reset_requested = bool(body.get("reset", False))
-        thrusting = bool(body.get("thrusting", False))
-        turn_left = bool(body.get("turn_left", False))
-        turn_right = bool(body.get("turn_right", False))
-        landing = bool(body.get("landing", False))
         
-        if reset_requested and _cached_rocket is not None:
-            _active_rocket = copy.deepcopy(_cached_rocket)
-            # Regenerate dynamic fresh frames from starting state
-            frames_data = _active_rocket.run_simulation(total_frames=1, thrusting=False, landing=False)
-            return jsonify({"status": "success", "frames": frames_data})
+        if body.get("reset", False):
+            start_y = np.random.uniform(12.0, 15.0)
+            start_x = np.random.uniform(3.0, 7.0)
+            active_physics.reset(pos=(start_x, start_y))
 
-        if _active_rocket is None or reset_requested:
-            _active_rocket = RocketLandingEngine(initial_pos=[2.0, 25.0], initial_vel=[0.0, 0.0])
-        
-        frames_data = _active_rocket.run_simulation(
-            total_frames=1, 
-            thrusting=thrusting, 
-            turn_left=turn_left,
-            turn_right=turn_right,
-            landing=landing
-        )
-        
-        return jsonify({"status": "success", "frames": frames_data})
-        
+        mode = body.get("mode", "manual")
+        action_name = "IDLE"
+
+        if mode == "ai":
+            obs = get_observation(active_physics)
+            state_t = torch.from_numpy(obs).unsqueeze(0).to(device)
+            with torch.no_grad():
+                q_values = model(state_t)
+                action = torch.argmax(q_values).item()
+            crashed, landed = active_physics.step(action)
+            action_name = "PYTORCH AI ENGAGED"
+
+        elif mode == "traditional":
+            crashed, landed = active_physics.step_traditional()
+            action_name = "TRADITIONAL AUTOPILOT"
+
+        else:
+            manual_action = int(body.get("action", 0))
+            crashed, landed = active_physics.step(manual_action)
+            action_name = "HUMAN MANUAL PILOT"
+
+        frame_data = {
+            "x": float(active_physics.pos[0]),
+            "y": float(active_physics.pos[1]),
+            "angle": float(active_physics.angle),
+            "vx": float(active_physics.vel[0]),
+            "vy": float(active_physics.vel[1]),
+            "thrusting": bool(active_physics.thrusting),
+            "crashed": crashed,
+            "landed": landed,
+            "action_name": action_name,
+            "landing_pad": [float(active_physics.landing_pad[0]), float(active_physics.landing_pad[1])]
+        }
+
+        return jsonify({"status": "success", "frame": frame_data})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
