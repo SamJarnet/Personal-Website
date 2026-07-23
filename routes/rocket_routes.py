@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from flask import Blueprint, jsonify, request, render_template
 
-from engines.physics import RocketPhysics
+from engines.physics_engine import RocketPhysics
 from agent import RocketNetwork
 
 rocket_bp = Blueprint("rocket", __name__)
