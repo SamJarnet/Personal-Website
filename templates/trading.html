@@ -5,148 +5,294 @@
 {% block extra_head %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  /* ── tokens ──────────────────────────────────────────────────────────── */
+  /* ── Design Tokens: Institutional Financial Workstation ──────────────── */
   :root {
-    --td-bg:      #0d1117;
-    --td-surf:    #161b22;
-    --td-border:  #30363d;
-    --td-accent:  #3971a5;
-    --td-accentd: #3b8ad4;
-    --td-text:    #e6edf3;
-    --td-sub:     #8b949e;
-    --td-green:   #3fb950;
-    --td-red:     #f85149;
-    --td-yellow:  #f7c948;
-    --td-purple:  #a371f7;
-    --td-blue:    #79c0ff;
-    --td-font:    'Courier New', Courier, monospace;
-    --td-r:       6px;
+    --td-bg:          #0b0e14;
+    --td-surf:        #131720;
+    --td-surf-elev:   #1a202c;
+    --td-border:      #262c36;
+    --td-border-sub:  #1b2029;
+    --td-accent:      #3971a5;
+    --td-accent-h:    #4b8bc8;
+    --td-text:        #e1e7ed;
+    --td-sub:         #768390;
+    --td-green:       #2da44e;
+    --td-red:         #f85149;
+    --td-yellow:      #d29922;
+    --td-purple:      #a371f7;
+    --td-blue:        #58a6ff;
+    --td-font-sans:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --td-font-mono:   "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    --td-r:           2px;
   }
 
-  /* ── wrapper scoped so it doesn't fight your base styles ────────────── */
+  /* ── App Shell ──────────────────────────────────────────────────────── */
   #td-app {
     background: var(--td-bg);
     color: var(--td-text);
-    font-family: var(--td-font);
-    font-size: 13px;
+    font-family: var(--td-font-sans);
+    font-size: 12px;
     min-height: calc(100vh - 60px);
+    line-height: 1.4;
   }
 
-  /* ── search bar ──────────────────────────────────────────────────────── */
+  #td-app * {
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--td-border) transparent;
+  }
+
+  /* ── Top Workstation Command Bar ───────────────────────────────────── */
   #td-topbar {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
     background: var(--td-surf);
     border-bottom: 1px solid var(--td-border);
   }
-  #td-logo { font-size: 15px; font-weight: bold; color: var(--td-accent); }
+
+  #td-logo {
+    font-family: var(--td-font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--td-accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   #td-ticker {
-    background: var(--td-bg); border: 1px solid var(--td-border);
-    color: var(--td-text); font-family: var(--td-font); font-size: 14px;
-    padding: 6px 12px; border-radius: var(--td-r); width: 130px;
-    outline: none; transition: border-color .15s;
+    background: var(--td-bg);
+    border: 1px solid var(--td-border);
+    color: var(--td-text);
+    font-family: var(--td-font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: var(--td-r);
+    width: 110px;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color .15s;
   }
   #td-ticker:focus { border-color: var(--td-accent); }
+
   #td-search-btn {
-    background: var(--td-accent); color: var(--td-bg); border: none;
-    font-family: var(--td-font); font-size: 12px; font-weight: bold;
-    padding: 7px 18px; border-radius: var(--td-r); cursor: pointer;
+    background: var(--td-accent);
+    color: #fff;
+    border: none;
+    font-family: var(--td-font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 6px 14px;
+    border-radius: var(--td-r);
+    cursor: pointer;
     transition: background .15s;
   }
-  #td-search-btn:hover    { background: var(--td-accentd); }
-  #td-search-btn:disabled { opacity: .5; cursor: default; }
-  #td-status { font-size: 11px; color: var(--td-sub); }
+  #td-search-btn:hover { background: var(--td-accent-h); }
+  #td-search-btn:disabled { opacity: 0.5; cursor: default; }
 
-  /* ── tab strip ───────────────────────────────────────────────────────── */
+  #td-status {
+    font-family: var(--td-font-mono);
+    font-size: 11px;
+    color: var(--td-sub);
+    margin-left: 4px;
+  }
+
+  /* ── Workstation Navigation Tabs ───────────────────────────────────── */
   #td-tabs {
-    display: flex; padding: 0 20px;
+    display: flex;
+    padding: 0 16px;
     background: var(--td-surf);
     border-bottom: 1px solid var(--td-border);
+    gap: 2px;
   }
+
   .td-tab {
-    background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--td-sub); font-family: var(--td-font); font-size: 12px;
-    font-weight: bold; padding: 10px 18px; cursor: pointer; margin-bottom: -1px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--td-sub);
+    font-family: var(--td-font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+    margin-bottom: -1px;
     transition: color .15s, border-color .15s;
   }
-  .td-tab:hover  { color: var(--td-text); }
-  .td-tab.active { color: var(--td-accent); border-bottom-color: var(--td-accent); }
+  .td-tab:hover { color: var(--td-text); }
+  .td-tab.active {
+    color: var(--td-text);
+    border-bottom-color: var(--td-accent);
+    background: rgba(57, 113, 165, 0.05);
+  }
 
-  /* ── panels ──────────────────────────────────────────────────────────── */
+  /* ── Panels Layout ─────────────────────────────────────────────────── */
   .td-panel { display: none; }
   .td-panel.active {
     display: flex;
-    height: calc(100vh - 130px);
+    height: calc(100vh - 100px);
     min-height: 600px;
   }
 
-  /* ── sidebar (Resizability Optimized) ────────────────────────────────── */
+  /* ── Sidebar (Terminal Inspector) ──────────────────────────────────── */
   .td-sidebar {
-    width: 280px; min-width: 240px; max-width: 500px;
+    width: 280px;
+    min-width: 240px;
+    max-width: 480px;
     background: var(--td-surf);
     border-right: 1px solid var(--td-border);
-    display: flex; flex-direction: column; 
-    overflow: hidden; 
-    resize: horizontal; 
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    resize: horizontal;
   }
-  .td-co-hdr { padding: 14px 14px 10px; border-bottom: 1px solid var(--td-border); flex-shrink: 0; }
-  #td-co-name   { font-size: 13px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #td-co-sector { font-size: 10px; color: var(--td-sub); margin-bottom: 8px; }
-  #td-co-price  { font-size: 22px; font-weight: bold; color: var(--td-accent); }
-  #td-co-chg    { font-size: 11px; margin-left: 8px; }
+
+  .td-co-hdr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--td-border);
+    background: var(--td-surf-elev);
+    flex-shrink: 0;
+  }
+  #td-co-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--td-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #td-co-sector {
+    font-size: 11px;
+    color: var(--td-sub);
+    margin-top: 2px;
+    margin-bottom: 8px;
+  }
+  #td-co-price {
+    font-family: var(--td-font-mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--td-text);
+  }
+  #td-co-chg {
+    font-family: var(--td-font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+  }
 
   .td-scroll { overflow-y: auto; flex: 1; }
   .td-scroll::-webkit-scrollbar { width: 4px; }
-  .td-scroll::-webkit-scrollbar-thumb { background: var(--td-border); border-radius: 2px; }
+  .td-scroll::-webkit-scrollbar-thumb { background: var(--td-border); }
 
   .td-sec-hdr {
-    background: var(--td-bg); color: var(--td-accent);
-    font-size: 9px; font-weight: bold; letter-spacing: .08em;
-    padding: 7px 12px 3px;
+    background: var(--td-bg);
+    color: var(--td-sub);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 12px;
+    border-top: 1px solid var(--td-border-sub);
+    border-bottom: 1px solid var(--td-border-sub);
   }
+
   .td-stat {
-    display: flex; justify-content: space-between;
-    padding: 4px 12px; border-bottom: 1px solid #1e242d; font-size: 10px; gap: 8px;
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--td-border-sub);
+    font-size: 11px;
+    gap: 8px;
   }
   .td-stat-l { color: var(--td-sub); white-space: nowrap; }
-  .td-stat-v { font-weight: bold; text-align: right; word-break: break-all; }
+  .td-stat-v {
+    font-family: var(--td-font-mono);
+    font-weight: 500;
+    color: var(--td-text);
+    text-align: right;
+    word-break: break-all;
+  }
 
-  /* ── main / chart area ───────────────────────────────────────────────── */
-  .td-main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; min-width: 0; background: var(--td-bg); }
+  /* ── Main View Area ────────────────────────────────────────────────── */
+  .td-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    min-width: 0;
+    background: var(--td-bg);
+  }
 
+  /* Segmented Controls Toolbar */
   .td-ctrl {
-    display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-    padding: 7px 12px; background: var(--td-surf);
-    border-bottom: 1px solid var(--td-border); flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 6px 12px;
+    background: var(--td-surf);
+    border-bottom: 1px solid var(--td-border);
+    flex-shrink: 0;
   }
-  .td-ctrl-lbl { color: var(--td-sub); font-size: 10px; margin-right: 2px; }
-  .td-sep { width: 1px; height: 18px; background: var(--td-border); margin: 0 5px; }
+  .td-ctrl-lbl {
+    color: var(--td-sub);
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .td-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--td-border);
+    margin: 0 6px;
+  }
 
+  /* Replace floating rounded pills with compact segmented block controls */
   .td-pill {
-    background: none; border: 1px solid var(--td-border); color: var(--td-sub);
-    font-family: var(--td-font); font-size: 10px; font-weight: bold;
-    padding: 3px 9px; border-radius: 20px; cursor: pointer; transition: all .15s;
+    background: var(--td-bg);
+    border: 1px solid var(--td-border);
+    color: var(--td-sub);
+    font-family: var(--td-font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: var(--td-r);
+    cursor: pointer;
+    transition: all .15s;
   }
-  .td-pill:hover  { color: var(--td-text); border-color: var(--td-text); }
-  .td-pill.active { color: var(--td-bg); background: var(--td-accent); border-color: var(--td-accent); }
+  .td-pill:hover { color: var(--td-text); border-color: var(--td-sub); }
+  .td-pill.active {
+    color: #fff;
+    background: var(--td-accent);
+    border-color: var(--td-accent);
+  }
 
-  /* ── chart containers (Resizability Optimized) ───────────────────────── */
+  /* ── Chart Container Block ─────────────────────────────────────────── */
   .td-chart-container-block {
-    height: 750px; min-height: 350px; max-height: 800px;
-    position: relative; border-bottom: 1px solid var(--td-border); 
-    padding: 14px; background: var(--td-bg);
+    height: 520px;
+    min-height: 320px;
+    max-height: 800px;
+    position: relative;
+    border-bottom: 1px solid var(--td-border);
+    padding: 12px;
+    background: var(--td-bg);
     overflow: hidden;
     resize: vertical;
   }
   .td-chart-wrap { height: 100%; width: 100%; position: relative; }
   .td-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
-  /* ── company insights dynamic layout ────────────────────────────────── */
+  /* ── Insights Terminal Section ─────────────────────────────────────── */
   .td-insights-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    padding: 16px;
+    gap: 12px;
+    padding: 12px;
     background: var(--td-bg);
   }
 
@@ -158,141 +304,231 @@
     background: var(--td-surf);
     border: 1px solid var(--td-border);
     border-radius: var(--td-r);
-    padding: 16px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    resize: vertical; /* Added vertical resize capability to individual dashboard cards */
+    resize: vertical;
     min-height: 150px;
   }
 
   .td-insight-title {
-    font-size: 11px; font-weight: bold; color: var(--td-accent);
-    letter-spacing: .08em; margin-bottom: 10px; border-bottom: 1px solid var(--td-border);
-    padding-bottom: 6px; text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--td-accent);
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--td-border);
+    padding-bottom: 4px;
+    text-transform: uppercase;
   }
 
   #td-co-summary-text {
-    font-size: 12px; color: var(--td-text); line-height: 1.6;
-    text-align: justify; opacity: 0.95;
+    font-size: 12px;
+    color: var(--td-text);
+    line-height: 1.55;
     overflow-y: auto;
   }
 
-  #td-news-feed {
-    overflow-y: auto;
-    flex: 1;
-  }
+  #td-news-feed { overflow-y: auto; flex: 1; }
 
   .td-news-item {
-    padding: 8px 0; border-bottom: 1px dashed #1e242d;
-    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--td-border-sub);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
   .td-news-item:last-child { border-bottom: none; }
-  .td-news-headline { font-size: 12px; font-weight: bold; color: var(--td-blue); text-decoration: none; }
+  .td-news-headline {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--td-blue);
+    text-decoration: none;
+  }
   .td-news-headline:hover { text-decoration: underline; }
-  .td-news-meta { font-size: 10px; color: var(--td-sub); }
+  .td-news-meta {
+    font-family: var(--td-font-mono);
+    font-size: 10px;
+    color: var(--td-sub);
+  }
 
-  /* ── backtest sidebar (Resizability Optimized) ────────────────────────── */
+  /* ── Backtest Control Sidebar ──────────────────────────────────────── */
   .td-bt-sidebar {
-    width: 260px; min-width: 220px; max-width: 450px;
+    width: 270px;
+    min-width: 220px;
+    max-width: 450px;
     background: var(--td-surf);
     border-right: 1px solid var(--td-border);
-    display: flex; flex-direction: column; 
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     resize: horizontal;
   }
   .td-params { padding: 12px; border-bottom: 1px solid var(--td-border); }
   .td-params h3 {
-    font-size: 9px; font-weight: bold; color: var(--td-accent);
-    letter-spacing: .08em; margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--td-sub);
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+    text-transform: uppercase;
   }
-  .td-prow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; gap: 4px; }
-  .td-prow label { font-size: 10px; color: var(--td-sub); white-space: nowrap; }
+  .td-prow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    gap: 6px;
+  }
+  .td-prow label { font-size: 11px; color: var(--td-sub); white-space: nowrap; }
   .td-prow input, .td-prow select {
-    background: var(--td-bg); border: 1px solid var(--td-border);
-    color: var(--td-text); font-family: var(--td-font); font-size: 11px;
-    padding: 3px 8px; border-radius: var(--td-r); width: 85px; text-align: right;
-    outline: none; transition: border-color .15s; min-width: 60px;
+    background: var(--td-bg);
+    border: 1px solid var(--td-border);
+    color: var(--td-text);
+    font-family: var(--td-font-mono);
+    font-size: 11px;
+    padding: 3px 6px;
+    border-radius: var(--td-r);
+    width: 85px;
+    text-align: right;
+    outline: none;
+    transition: border-color .15s;
   }
   .td-prow input:focus, .td-prow select:focus { border-color: var(--td-accent); }
+
   #td-bt-run {
-    margin: 0 12px 12px; background: var(--td-accent); color: var(--td-bg);
-    border: none; font-family: var(--td-font); font-size: 11px; font-weight: bold;
-    padding: 8px; border-radius: var(--td-r); cursor: pointer; width: calc(100% - 24px);
-    transition: background .15s; flex-shrink: 0;
+    margin: 12px;
+    background: var(--td-accent);
+    color: #fff;
+    border: none;
+    font-family: var(--td-font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 8px;
+    border-radius: var(--td-r);
+    cursor: pointer;
+    transition: background .15s;
+    flex-shrink: 0;
   }
-  #td-bt-run:hover    { background: var(--td-accentd); }
-  #td-bt-run:disabled { opacity: .5; cursor: default; }
+  #td-bt-run:hover { background: var(--td-accent-h); }
+  #td-bt-run:disabled { opacity: 0.5; cursor: default; }
 
   .td-res-scroll { overflow-y: auto; flex: 1; }
   .td-res-hdr {
-    font-size: 9px; font-weight: bold; color: var(--td-accent);
-    letter-spacing: .08em; padding: 7px 12px 3px; background: var(--td-bg);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--td-sub);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 12px 4px;
+    background: var(--td-bg);
+    border-top: 1px solid var(--td-border-sub);
+    border-bottom: 1px solid var(--td-border-sub);
   }
-  .td-res-row { display: flex; justify-content: space-between; padding: 4px 12px;
-                border-bottom: 1px solid #1e242d; font-size: 10px; gap: 8px; }
+  .td-res-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--td-border-sub);
+    font-size: 11px;
+    gap: 8px;
+  }
   .td-res-l { color: var(--td-sub); white-space: nowrap; }
-  .td-res-v { font-weight: bold; text-align: right; }
-  .td-res-sep { height: 1px; background: var(--td-border); margin: 3px 12px; }
-  .td-pos { color: var(--td-green); } .td-neg { color: var(--td-red); }
+  .td-res-v { font-family: var(--td-font-mono); font-weight: 600; text-align: right; }
+  .td-res-sep { height: 1px; background: var(--td-border); margin: 4px 12px; }
+  .td-pos { color: var(--td-green); }
+  .td-neg { color: var(--td-red); }
 
   .td-trade-row {
-    display: grid; grid-template-columns: 1fr 1fr 1fr;
-    padding: 3px 12px; font-size: 9px; border-bottom: 1px solid #1e242d; gap: 4px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 4px 12px;
+    font-family: var(--td-font-mono);
+    font-size: 10px;
+    border-bottom: 1px solid var(--td-border-sub);
+    gap: 4px;
   }
-  .td-trade-row.hdr { color: var(--td-sub); font-weight: bold; }
+  .td-trade-row.hdr { color: var(--td-sub); font-weight: 700; font-family: var(--td-font-sans); }
 
-  /* ── loading / empty ──────────────────────────────────────────────────── */
+  /* ── Overlay Indicators ────────────────────────────────────────────── */
   .td-loading {
-    position: absolute; inset: 0; background: rgba(13,17,23,.7);
+    position: absolute; inset: 0;
+    background: rgba(11, 14, 20, 0.85);
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; color: var(--td-accent); letter-spacing: .1em;
+    font-family: var(--td-font-mono);
+    font-size: 11px; color: var(--td-accent); letter-spacing: 0.1em;
     pointer-events: none; opacity: 0; transition: opacity .2s;
   }
   .td-loading.show { opacity: 1; pointer-events: all; }
+
   .td-empty {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100%;
-    color: var(--td-sub); gap: 8px; font-size: 12px;
+    color: var(--td-sub); gap: 6px; font-size: 12px;
   }
-  .td-empty .ico { font-size: 32px; }
+  .td-empty .ico { font-family: var(--td-font-mono); font-size: 11px; color: var(--td-sub); }
 
-  /* ── native screener styles (Resizability Optimized) ──────────────────── */
-  .td-range-box { margin-bottom: 12px; }
-  .td-range-hdr { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; gap: 4px; }
+  /* ── Quantitative Screener Section ─────────────────────────────────── */
+  .td-range-box { margin-bottom: 10px; }
+  .td-range-hdr { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; gap: 4px; }
   .td-range-input { width: 100%; accent-color: var(--td-accent); background: transparent; cursor: pointer; }
   
   .td-table-wrap { 
     flex: 1; 
-    padding: 14px; 
+    padding: 0; 
     overflow: auto;
-    resize: vertical; /* Added drag-to-resize support to lower table block region */
+    resize: vertical;
     height: 400px;
     min-height: 200px;
     border-bottom: 1px solid var(--td-border);
   }
   
   .td-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
-  .td-table th { background: var(--td-surf); color: var(--td-accent); padding: 8px 12px; border-bottom: 1px solid var(--td-border); font-weight: bold; font-size: 10px; letter-spacing: .05em; }
-  .td-table td { padding: 8px 12px; border-bottom: 1px solid #1e242d; color: var(--td-text); }
+  .td-table th {
+    background: var(--td-surf);
+    color: var(--td-sub);
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--td-border);
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .td-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--td-border-sub);
+    color: var(--td-text);
+    font-family: var(--td-font-mono);
+  }
   
-  /* Clickable screener results visual queue styles */
   .td-table tbody tr.td-screen-row { cursor: pointer; transition: background .1s ease; }
-  .td-table tbody tr.td-screen-row:hover td { background: #1e242d; color: #fff; }
+  .td-table tbody tr.td-screen-row:hover td { background: var(--td-surf-elev); color: #fff; }
 
-  /* admin buttons overlay */
   .td-admin-ctrl-btn {
-    background: none; border: 1px solid var(--td-border); color: var(--td-sub);
-    font-family: var(--td-font); font-size: 11px; font-weight: bold; padding: 6px 12px;
-    border-radius: var(--td-r); cursor: pointer; margin: 10px; display: inline-block;
+    background: var(--td-bg);
+    border: 1px solid var(--td-border);
+    color: var(--td-sub);
+    font-family: var(--td-font-sans);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: var(--td-r);
+    cursor: pointer;
+    margin: 10px auto;
+    display: block;
+    text-transform: uppercase;
   }
   .td-admin-ctrl-btn.admin-active { border-color: var(--td-red); color: var(--td-red); }
 
-  #td-app * { scrollbar-width: thin; scrollbar-color: var(--td-border) transparent; }
-
   @media (max-width: 700px) {
-    .td-sidebar, .td-bt-sidebar { width: 200px; min-width: 180px; }
-    #td-co-price { font-size: 18px; }
+    .td-sidebar, .td-bt-sidebar { width: 200px; min-width: 170px; }
+    #td-co-price { font-size: 16px; }
   }
 </style>
 {% endblock %}
@@ -301,21 +537,21 @@
 <div id="td-app">
 
   <div id="td-topbar">
-    <span id="td-logo">◈ TRADING DASHBOARD</span>
-    <input id="td-ticker" type="text" value="AAPL" placeholder="Ticker…"
+    <span id="td-logo">TRADING INTERFACE</span>
+    <input id="td-ticker" type="text" value="AAPL" placeholder="TICKER…"
            autocomplete="off" onkeydown="if(event.key==='Enter')tdSearch()"/>
-    <button id="td-search-btn" onclick="tdSearch()">SEARCH</button>
-    <span id="td-status">Enter a ticker and press Search</span>
+    <button id="td-search-btn" onclick="tdSearch()">LOAD</button>
+    <span id="td-status">Enter ticker symbol and press Load</span>
   </div>
 
   <div id="td-tabs">
     <button id="td-tab-btn-market" class="td-tab active" onclick="tdTab('market',this)">Market Data</button>
-    <button id="td-tab-btn-backtest" class="td-tab"        onclick="tdTab('backtest',this)">Backtest</button>
+    <button id="td-tab-btn-backtest" class="td-tab"        onclick="tdTab('backtest',this)">Backtest Engine</button>
     <button id="td-tab-btn-screener" class="td-tab"        onclick="tdTab('screener',this)">Stock Screener</button>
   </div>
 
   <div id="td-market" class="td-panel active">
-    <!-- LEFT SIDEBAR: Click-and-drag horizontal handles optimized -->
+    <!-- LEFT SIDEBAR -->
     <div class="td-sidebar">
       <div class="td-co-hdr">
         <div id="td-co-name">—</div>
@@ -323,7 +559,7 @@
         <span id="td-co-price">—</span><span id="td-co-chg"></span>
       </div>
       <div class="td-scroll" id="td-stats">
-        <div class="td-empty"><span class="ico">Load a ticker</span></div>
+        <div class="td-empty"><span class="ico">[ NO SYMBOL LOADED ]</span></div>
       </div>
     </div>
 
@@ -347,16 +583,14 @@
         <button class="td-pill"        onclick="tdPeriod('All',this)">All</button>
       </div>
 
-      <!-- Vertically Resizable Chart Region Container -->
       <div class="td-chart-container-block">
         <div class="td-chart-wrap" id="td-mwrap">
-          <div class="td-empty" id="td-mempty"><span class="ico">Search for a ticker</span></div>
+          <div class="td-empty" id="td-mempty"><span class="ico">[ SEARCH SYMBOL TO DISPLAY CHART ]</span></div>
           <canvas id="td-mchart" style="display:none"></canvas>
-          <div class="td-loading" id="td-mload">Loading…</div>
+          <div class="td-loading" id="td-mload">LOADING MARKET DATA…</div>
         </div>
       </div>
 
-      <!-- Bottom Insights Hub Row -->
       <div class="td-insights-grid" id="td-insights-grid" style="display: none;">
         <div class="td-insight-card">
           <div class="td-insight-title">Business Profile Summary</div>
@@ -370,8 +604,6 @@
               <a href="#" class="td-news-headline" onclick="return false;">WORK IN PROGRESS</a>
               <span class="td-news-meta">Example • 2 hours ago</span>
             </div>
-
-            </div>
           </div>
         </div>
       </div>
@@ -383,7 +615,7 @@
     <!-- BACKTEST SIDEBAR -->
     <div class="td-bt-sidebar">
       <div class="td-params">
-        <h3>STRATEGY PARAMETERS</h3>
+        <h3>Strategy Parameters</h3>
         <div class="td-prow"><label>Capital ($)</label><input id="p-cap"    value="10000"/></div>
         <div class="td-prow"><label>Fast SMA</label>   <input id="p-fast"   value="20"/></div>
         <div class="td-prow"><label>Slow SMA</label>   <input id="p-slow"   value="50"/></div>
@@ -396,9 +628,9 @@
           </select>
         </div>
       </div>
-      <button id="td-bt-run" onclick="tdRunBacktest()">▶  RUN BACKTEST</button>
+      <button id="td-bt-run" onclick="tdRunBacktest()">RUN BACKTEST ENGINE</button>
       <div class="td-res-scroll" id="td-bt-res">
-        <div class="td-empty" style="padding:16px 0"><span class="ico">Configure and Run</span></div>
+        <div class="td-empty" style="padding:16px 0"><span class="ico">[ CONFIGURE & RUN ]</span></div>
       </div>
     </div>
 
@@ -409,11 +641,10 @@
         <button class="td-pill"        onclick="tdBtView('equity',this)">Equity Curve</button>
         <button class="td-pill"        onclick="tdBtView('drawdown',this)">Drawdown</button>
       </div>
-      <!-- Vertically Resizable Chart Region Container for Backtest view -->
       <div class="td-chart-container-block" id="td-bwrap" style="border-bottom: 1px solid var(--td-border);">
-        <div class="td-empty" id="td-bempty"><span class="ico">Run a backtest to see results</span></div>
+        <div class="td-empty" id="td-bempty"><span class="ico">[ RUN BACKTEST TO VIEW GRAPH RESULTS ]</span></div>
         <canvas id="td-bchart" style="display:none"></canvas>
-        <div class="td-loading" id="td-bload">Running…</div>
+        <div class="td-loading" id="td-bload">EXECUTING STRATEGY BACKTEST…</div>
       </div>
     </div>
   </div>
@@ -421,68 +652,68 @@
   <div id="td-screener" class="td-panel">
     <div class="td-bt-sidebar">
       <div class="td-params">
-        <h3>RATING FILTERS</h3>
-        <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 12px; margin-bottom: 14px;">
+        <h3>Rating Filters</h3>
+        <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 10px; margin-bottom: 12px;">
           <div class="td-range-hdr">
             <span class="td-stat-l" style="color: var(--td-accent); font-weight: bold;">Minimum Rating Filter</span>
-            <span class="td-pos" style="font-weight: bold;"><span id="lbl_rating">4</span>/6 Metrics</span>
+            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);"><span id="lbl_rating">4</span>/6 Metrics</span>
           </div>
           <input type="range" class="td-range-input" id="filter_rating" min="0" max="6" step="1" value="4">
         </div>
 
-        <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 12px; margin-bottom: 14px;">
+        <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 10px; margin-bottom: 12px;">
           <div class="td-range-hdr">
             <span class="td-stat-l" style="color: var(--td-yellow); font-weight: bold;">Wiggle Room Tolerance</span>
-            <span style="color: var(--td-yellow); font-weight: bold;"><span id="lbl_wiggle">0</span>%</span>
+            <span style="color: var(--td-yellow); font-weight: bold; font-family: var(--td-font-mono);"><span id="lbl_wiggle">0</span>%</span>
           </div>
           <input type="range" class="td-range-input" id="filter_wiggle" min="0" max="25" step="1" value="0">
         </div>
 
-        <h3>CRITERIA TARGETS</h3>
+        <h3>Criteria Targets</h3>
         <div class="td-range-box">
           <div class="td-range-hdr">
             <span class="td-stat-l">Gross Margin (GM)</span>
-            <span class="td-pos" style="font-weight: bold;">&gt; <span id="lbl_gm">30</span>%</span>
+            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);">&gt; <span id="lbl_gm">30</span>%</span>
           </div>
           <input type="range" class="td-range-input" id="filter_gm" min="0" max="100" value="30">
         </div>
         <div class="td-range-box">
           <div class="td-range-hdr">
             <span class="td-stat-l">ROCE / ROE</span>
-            <span class="td-pos" style="font-weight: bold;">&gt; <span id="lbl_roce">15</span>%</span>
+            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);">&gt; <span id="lbl_roce">15</span>%</span>
           </div>
           <input type="range" class="td-range-input" id="filter_roce" min="0" max="100" value="15">
         </div>
         <div class="td-range-box">
           <div class="td-range-hdr">
             <span class="td-stat-l">Free Cash Flow</span>
-            <span class="td-pos" style="font-weight: bold;">&gt; $<span id="lbl_fcf">1.0</span>B</span>
+            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);">&gt; $<span id="lbl_fcf">1.0</span>B</span>
           </div>
           <input type="range" class="td-range-input" id="filter_fcf" min="0" max="50" step="0.5" value="1.0">
         </div>
         <div class="td-range-box">
           <div class="td-range-hdr">
             <span class="td-stat-l">Debt/Equity Ratio</span>
-            <span class="td-neg" style="font-weight: bold;">&lt; <span id="lbl_de">0.5</span></span>
+            <span class="td-neg" style="font-weight: bold; font-family: var(--td-font-mono);">&lt; <span id="lbl_de">0.5</span></span>
           </div>
           <input type="range" class="td-range-input" id="filter_de" min="0" max="3" step="0.1" value="0.5">
         </div>
         <div class="td-range-box">
           <div class="td-range-hdr">
             <span class="td-stat-l">PEGY Ratio</span>
-            <span class="td-neg" style="font-weight: bold;">&lt; <span id="lbl_pegy">1.0</span></span>
+            <span class="td-neg" style="font-weight: bold; font-family: var(--td-font-mono);">&lt; <span id="lbl_pegy">1.0</span></span>
           </div>
           <input type="range" class="td-range-input" id="filter_pegy" min="0.1" max="5" step="0.1" value="1.0">
         </div>
         <div class="td-range-box">
           <div class="td-range-hdr">
             <span class="td-stat-l">P/E Ratio</span>
-            <span class="td-neg" style="font-weight: bold;">&lt; <span id="lbl_pe">20</span></span>
+            <span class="td-neg" style="font-weight: bold; font-family: var(--td-font-mono);">&lt; <span id="lbl_pe">20</span></span>
           </div>
           <input type="range" class="td-range-input" id="filter_pe" min="1" max="100" value="20">
         </div>
       </div>
-      <button id="btnRunScreen" onclick="tdRunScreen()">▶  EXECUTE SEARCH</button>
+      <button id="btnRunScreen" onclick="tdRunScreen()">EXECUTE QUANT SEARCH</button>
       <button id="admin-login-btn" class="td-admin-ctrl-btn">🔒 Admin Login</button>
     </div>
 
@@ -496,14 +727,13 @@
         </div>
       </div>
       
-      <!-- Table block wrap container optimized for vertical resizability -->
       <div class="td-table-wrap">
         <table class="td-table">
           <thead>
             <tr>
               <th>Ticker</th>
               <th>Company Name</th>
-              <th>Rating</th>
+              <th style="text-align: center;">Rating</th>
               <th>Gross Margin</th>
               <th>ROCE/ROE</th>
               <th>FCF</th>
@@ -515,7 +745,7 @@
           </thead>
           <tbody id="screenerResultsTable">
             <tr>
-              <td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0;">Configure your rules and click 'Execute Search'</td>
+              <td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">Configure rules and click 'Execute Quant Search'</td>
             </tr>
           </tbody>
         </table>
@@ -526,7 +756,7 @@
 </div>
 
 <script>
-// ── state ─────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────
 let tdSym       = null;
 let tdPer       = '1Y';
 let tdCType     = 'price';
@@ -536,15 +766,15 @@ let tdBChart    = null;
 let tdBData     = null;
 let tdBView     = 'strategy';
 
-Chart.defaults.color          = '#8b949e';
-Chart.defaults.font.family    = "'Courier New', monospace";
+Chart.defaults.color          = '#768390';
+Chart.defaults.font.family    = '"SF Mono", Consolas, monospace';
 Chart.defaults.font.size      = 10;
 
 const TC = {
-  bg:'#0d1117', surf:'#161b22', border:'#30363d',
-  accent:'#00d4aa', text:'#e6edf3', sub:'#8b949e',
-  green:'#3fb950', red:'#f85149',
-  yellow:'#f7c948', purple:'#a371f7', blue:'#79c0ff',
+  bg:'#0b0e14', surf:'#131720', border:'#262c36',
+  accent:'#3971a5', text:'#e1e7ed', sub:'#768390',
+  green:'#2da44e', red:'#f85149',
+  yellow:'#d29922', purple:'#a371f7', blue:'#58a6ff',
 };
 
 const TF = {
@@ -587,10 +817,10 @@ function tdBaseChart(labels, datasets, yLabel='') {
     data: { labels: sparseLabels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration: 250 },
+      animation: { duration: 200 },
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: TC.text, boxWidth: 10, padding: 14, font:{family:"'Courier New',monospace",size:10} } },
+        legend: { labels: { color: TC.text, boxWidth: 8, padding: 12, font:{family:'"SF Mono", Consolas, monospace',size:10} } },
         tooltip: {
           backgroundColor: TC.surf, borderColor: TC.border, borderWidth:1, titleColor: TC.sub, bodyColor: TC.text,
           callbacks: {
@@ -600,8 +830,8 @@ function tdBaseChart(labels, datasets, yLabel='') {
         }
       },
       scales: {
-        x: { grid:{color:TC.border+'33'}, ticks:{color:TC.sub, maxRotation:0}, border:{color:TC.border} },
-        y: { grid:{color:TC.border+'33'}, ticks:{color:TC.sub}, title:{ display:!!yLabel, text:yLabel, color:TC.sub }, border:{color:TC.border} }
+        x: { grid:{color:TC.border+'55'}, ticks:{color:TC.sub, maxRotation:0}, border:{color:TC.border} },
+        y: { grid:{color:TC.border+'55'}, ticks:{color:TC.sub}, title:{ display:!!yLabel, text:yLabel, color:TC.sub }, border:{color:TC.border} }
       }
     }
   };
@@ -611,7 +841,6 @@ function tdDestroy(c){ if(c){ c.destroy(); return null; } return null; }
 function tdEl(id)    { return document.getElementById(id); }
 function tdLoading(id,show){ tdEl(id).classList.toggle('show',show); }
 
-// Resize Observer pipeline to ensure Chart graphs update instantly when layout dimensions are altered by manual dragging
 const resizeObserver = new ResizeObserver(entries => {
   for (let entry of entries) {
     if(tdMChart) tdMChart.resize();
@@ -622,12 +851,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('.td-chart-container-block').forEach(el => resizeObserver.observe(el));
 });
 
-// ── search handler ────────────────────────────────────────────────────────
+// ── Search Handler ────────────────────────────────────────────────────────
 async function tdSearch(targetTicker) {
   const sym = targetTicker || tdEl('td-ticker').value.trim().toUpperCase();
   if(!sym) return;
   tdSym = sym;
-  tdEl('td-ticker').value = sym; // Ensure input updates if searched from screener click
+  tdEl('td-ticker').value = sym;
   tdHCache = {};
   tdEl('td-status').textContent = 'Loading…';
   tdEl('td-status').style.color = TC.sub;
@@ -645,17 +874,13 @@ async function tdSearch(targetTicker) {
   tdEl('td-search-btn').disabled = false;
 }
 
-// ── click on screener result handler ──────────────────────────────────────
 function tdSelectScreenerTicker(symbol) {
-  // 1. Switch Active View Tab UI to "Market Data"
   const marketTabBtn = tdEl('td-tab-btn-market');
   tdTab('market', marketTabBtn);
-
-  // 2. Trigger active query loading pipelines
   tdSearch(symbol);
 }
 
-// ── quote parsing & layout structural delivery ────────────────────────────
+// ── Quote Parsing ─────────────────────────────────────────────────────────
 function tdRenderQuote(q) {
   tdEl('td-co-name').textContent   = q.longName || q.shortName || q.symbol || '—';
   tdEl('td-co-sector').textContent = [q.sector,q.industry].filter(Boolean).join(' · ');
@@ -702,7 +927,7 @@ function tdRenderQuote(q) {
   }
 }
 
-// ── history loading and charts draw loop ──────────────────────────────────
+// ── History & Chart Renderer ──────────────────────────────────────────────
 async function tdFetchHistory(sym, period) {
   if(tdHCache[period]){ tdDrawMarket(tdHCache[period]); return; }
   tdLoading('td-mload',true);
@@ -731,12 +956,12 @@ function tdDrawMarket(data) {
 
   if(ct==='price'){
     cfg = tdBaseChart(labels,[{
-      label:'Close', data:vals, borderColor:color, backgroundColor:color+'18', borderWidth:1.5, pointRadius:0, fill:true, tension:0.1
+      label:'Close', data:vals, borderColor:color, backgroundColor:color+'15', borderWidth:1.5, pointRadius:0, fill:true, tension:0.05
     }],'Price ($)');
   } else if(ct==='returns'){
     const rets=vals.map((v,i)=>i===0?0:((v-vals[i-1])/vals[i-1]*100));
     cfg = tdBaseChart(labels,[{
-      type:'bar', label:'Daily Return %', data:rets, backgroundColor:rets.map(v=>v>=0?TC.green+'bb':TC.red+'bb'), borderWidth:0
+      type:'bar', label:'Daily Return %', data:rets, backgroundColor:rets.map(v=>v>=0?TC.green+'cc':TC.red+'cc'), borderWidth:0
     }],'Return (%)');
     cfg.type='bar';
   } else if(ct==='volume'){
@@ -753,10 +978,10 @@ function tdDrawMarket(data) {
       return out;
     };
     cfg = tdBaseChart(labels,[
-      {label:'Price',data:vals,borderColor:color+'88',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:0.1},
-      {label:'MA20', data:ma(20), borderColor:TC.yellow,backgroundColor:'transparent',borderWidth:1.4,pointRadius:0,tension:0.1},
-      {label:'MA50', data:ma(50), borderColor:TC.purple,backgroundColor:'transparent',borderWidth:1.6,pointRadius:0,tension:0.1},
-      ...(vals.length>=200?[{label:'MA200',data:ma(200),borderColor:TC.blue,backgroundColor:'transparent',borderWidth:1.8,pointRadius:0,tension:0.1}]:[]),
+      {label:'Price',data:vals,borderColor:color+'88',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:0.05},
+      {label:'MA20', data:ma(20), borderColor:TC.yellow,backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:0.05},
+      {label:'MA50', data:ma(50), borderColor:TC.purple,backgroundColor:'transparent',borderWidth:1.4,pointRadius:0,tension:0.05},
+      ...(vals.length>=200?[{label:'MA200',data:ma(200),borderColor:TC.blue,backgroundColor:'transparent',borderWidth:1.6,pointRadius:0,tension:0.05}]:[]),
     ],'Price ($)');
   }
 
@@ -781,11 +1006,11 @@ function tdPeriod(p, el) {
   if(tdSym) tdFetchHistory(tdSym, p);
 }
 
-// ── strategy testing execution engines ────────────────────────────────────
+// ── Backtest Engine Actions ───────────────────────────────────────────────
 async function tdRunBacktest() {
   if(!tdSym){ alert('Search for a ticker first.'); return; }
   const btn = tdEl('td-bt-run');
-  btn.disabled=true; btn.textContent='Running…';
+  btn.disabled=true; btn.textContent='RUNNING…';
   tdLoading('td-bload',true);
 
   try {
@@ -810,7 +1035,7 @@ async function tdRunBacktest() {
   } catch(e){ alert('Backtest error: '+e.message); }
 
   tdLoading('td-bload',false);
-  btn.disabled=false; btn.textContent='▶  RUN BACKTEST';
+  btn.disabled=false; btn.textContent='RUN BACKTEST ENGINE';
 }
 
 function tdRenderBtResults(data, params) {
@@ -819,28 +1044,28 @@ function tdRenderBtResults(data, params) {
   const addRow=(l,v,cls='')=>{const d=document.createElement('div');d.className='td-res-row'; d.innerHTML=`<span class="td-res-l">${l}</span><span class="td-res-v ${cls}">${v}</span>`;cont.appendChild(d);};
   const sep=()=>{const d=document.createElement('div');d.className='td-res-sep';cont.appendChild(d);};
 
-  addHdr('TRADE STATS');
+  addHdr('Trade Performance Stats');
   addRow('Total Trades', s.total_trades);
   addRow('Win Rate',     s.win_rate+'%', s.win_rate>50?'td-pos':'td-neg');
   addRow('Avg Win',      TF.price(s.avg_win),  'td-pos');
   addRow('Avg Loss',     TF.price(s.avg_loss), 'td-neg');
   addRow('Profit Factor',s.profit_factor??'∞', s.profit_factor==null||s.profit_factor>=1?'td-pos':'td-neg');
-  addRow('Sharpe',       s.sharpe,             s.sharpe>=1?'td-pos':s.sharpe<0?'td-neg':'');
+  addRow('Sharpe Ratio', s.sharpe,             s.sharpe>=1?'td-pos':s.sharpe<0?'td-neg':'');
   addRow('Max Drawdown', s.max_drawdown+'%',    'td-neg');
   sep();
-  addHdr('ALGORITHM');
-  addRow('Start',        TF.price(params.capital));
+  addHdr('Algorithm Return');
+  addRow('Start Capital',TF.price(params.capital));
   addRow('Final Value',  TF.price(s.algo_final));
   addRow('Total Return', s.algo_return+'%',  s.algo_return>=0?'td-pos':'td-neg');
   addRow('CAGR',         s.algo_cagr+'%',    s.algo_cagr>=0?'td-pos':'td-neg');
   sep();
-  addHdr('BUY & HOLD');
+  addHdr('Buy & Hold Benchmark');
   addRow('Final Value',  TF.price(s.bah_final));
   addRow('Total Return', s.bah_return+'%',  s.bah_return>=0?'td-pos':'td-neg');
   addRow('CAGR',         s.bah_cagr+'%',    s.bah_cagr>=0?'td-pos':'td-neg');
   addRow('Algo vs B&H',  (s.vs_bah>=0?'+':'')+s.vs_bah+'%', s.vs_bah>=0?'td-pos':'td-neg');
   sep();
-  addHdr('TRADE LOG (last 30)');
+  addHdr('Trade Log (Last 30)');
   const hr=document.createElement('div'); hr.className='td-trade-row hdr'; hr.innerHTML='<span>Buy</span><span>Sell</span><span>P&L</span>'; cont.appendChild(hr);
   for(const t of data.trades.slice(-30).reverse()){
     const row=document.createElement('div'); row.className='td-trade-row';
@@ -857,38 +1082,38 @@ function tdDrawBt(data) {
   if(tdBView==='strategy'){
     const cl=data.close; const lbs=cl.labels; const clv=cl.values;
     const color=clv[clv.length-1]>=clv[0]?TC.blue+'88':TC.red+'88';
-    const datasets=[{label:'Price',data:clv,borderColor:color,backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:0.1}];
+    const datasets=[{label:'Price',data:clv,borderColor:color,backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:0.05}];
     
     if(data.sma_fast.values.length){
       const pad=lbs.length-data.sma_fast.values.length;
-      datasets.push({label:`SMA${tdEl('p-fast').value}`, data:[...Array(pad).fill(null),...data.sma_fast.values], borderColor:TC.yellow,backgroundColor:'transparent',borderWidth:1.4,pointRadius:0,tension:0.1});
+      datasets.push({label:`SMA${tdEl('p-fast').value}`, data:[...Array(pad).fill(null),...data.sma_fast.values], borderColor:TC.yellow,backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,tension:0.05});
     }
     if(data.sma_slow.values.length){
       const pad=lbs.length-data.sma_slow.values.length;
-      datasets.push({label:`SMA${tdEl('p-slow').value}`, data:[...Array(pad).fill(null),...data.sma_slow.values], borderColor:TC.purple,backgroundColor:'transparent',borderWidth:1.6,pointRadius:0,tension:0.1});
+      datasets.push({label:`SMA${tdEl('p-slow').value}`, data:[...Array(pad).fill(null),...data.sma_slow.values], borderColor:TC.purple,backgroundColor:'transparent',borderWidth:1.4,pointRadius:0,tension:0.05});
     }
     if(data.stop_ma.values.length){
       const pad=lbs.length-data.stop_ma.values.length;
-      datasets.push({label:`Stop MA${tdEl('p-stop').value}`, data:[...Array(pad).fill(null),...data.stop_ma.values], borderColor:TC.red,backgroundColor:'transparent',borderWidth:1.2,borderDash:[4,3],pointRadius:0,tension:0.1});
+      datasets.push({label:`Stop MA${tdEl('p-stop').value}`, data:[...Array(pad).fill(null),...data.stop_ma.values], borderColor:TC.red,backgroundColor:'transparent',borderWidth:1,borderDash:[3,3],pointRadius:0,tension:0.05});
     }
 
     const buyPts=Array(lbs.length).fill(null); const sellPts=Array(lbs.length).fill(null);
     (data.buy_markers||[]).forEach(m=>{ buyPts[m.index]=m.price; });
     (data.sell_markers||[]).forEach(m=>{ sellPts[m.index]=m.price; });
-    datasets.push({label:'Buy', data:buyPts, type:'scatter', backgroundColor:TC.green, borderColor:TC.green, pointRadius:6, pointStyle:'triangle'});
-    datasets.push({label:'Sell', data:sellPts, type:'scatter', backgroundColor:TC.red, borderColor:TC.red, pointRadius:6, pointStyle:'triangle', rotation:180});
+    datasets.push({label:'Buy', data:buyPts, type:'scatter', backgroundColor:TC.green, borderColor:TC.green, pointRadius:5, pointStyle:'triangle'});
+    datasets.push({label:'Sell', data:sellPts, type:'scatter', backgroundColor:TC.red, borderColor:TC.red, pointRadius:5, pointStyle:'triangle', rotation:180});
 
     tdBChart = new Chart(ctx, tdBaseChart(lbs, datasets, 'Price'));
   } else if(tdBView==='equity'){
     const eq=data.equity, bah=data.bah;
     tdBChart = new Chart(ctx, tdBaseChart(eq.labels,[
-      {label:'Algorithm',data:eq.values,borderColor:TC.accent,backgroundColor:TC.accent+'10',borderWidth:2,pointRadius:0,fill:false,tension:0.1},
-      {label:'Buy & Hold',data:bah.values,borderColor:TC.sub,backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:0.1},
+      {label:'Algorithm',data:eq.values,borderColor:TC.accent,backgroundColor:TC.accent+'10',borderWidth:1.8,pointRadius:0,fill:false,tension:0.05},
+      {label:'Buy & Hold',data:bah.values,borderColor:TC.sub,backgroundColor:'transparent',borderWidth:1.2,borderDash:[4,4],pointRadius:0,tension:0.05},
     ],'Portfolio Value ($)'));
   } else {
     const dd=data.drawdown;
     tdBChart = new Chart(ctx, tdBaseChart(dd.labels,[{
-      label:'Drawdown %',data:dd.values, borderColor:TC.red,backgroundColor:TC.red+'22',borderWidth:1.5,pointRadius:0,fill:true,tension:0.1
+      label:'Drawdown %',data:dd.values, borderColor:TC.red,backgroundColor:TC.red+'15',borderWidth:1.2,pointRadius:0,fill:true,tension:0.05
     }],'Drawdown (%)'));
   }
 }
@@ -904,7 +1129,7 @@ function tdBtView(v, el){
   }
 }
 
-// ── stock screener engine actions ─────────────────────────────────────────
+// ── Stock Screener Engine ─────────────────────────────────────────────────
 function tdUpdateCache() {
     const token = sessionStorage.getItem("adminToken") || "";
     const btn = document.getElementById("btnUpdateCache");
@@ -924,7 +1149,7 @@ function tdUpdateCache() {
 
 async function tdRunScreen() {
   const tableBody = tdEl("screenerResultsTable");
-  tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px 0; color: var(--td-accent);">Analyzing tickers...</td></tr>`;
+  tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px 0; color: var(--td-accent); font-family: var(--td-font-sans);">Analyzing tickers...</td></tr>`;
   
   const payload = {
     min_gm: parseFloat(tdEl("filter_gm").value),
@@ -944,13 +1169,12 @@ async function tdRunScreen() {
 
     tableBody.innerHTML = "";
     if (!data.results || data.results.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0;">No tickers match criteria. Loosen parameters or sync server cache folder.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">No tickers match criteria. Loosen parameters or sync server cache folder.</td></tr>`;
       return;
     }
     data.results.forEach(row => {
       const tr = document.createElement("tr");
       tr.className = "td-screen-row";
-      // Clicking anywhere on this row triggers the load pipeline
       tr.setAttribute("onclick", `tdSelectScreenerTicker('${row.symbol}')`);
 
       const gmDisp = row.gross_margin === "—" ? "—" : row.gross_margin + "%";
@@ -960,7 +1184,7 @@ async function tdRunScreen() {
 
       tr.innerHTML = `
         <td style="font-weight: bold; color: var(--td-accent);">${row.symbol}</td>
-        <td>${row.name || '—'}</td>
+        <td style="font-family: var(--td-font-sans);">${row.name || '—'}</td>
         <td style="font-weight: bold; color: var(--td-yellow); text-align: center;">${row.rating}</td>
         <td>${gmDisp}</td>
         <td>${roceDisp}</td>
@@ -973,12 +1197,12 @@ async function tdRunScreen() {
       tableBody.appendChild(tr);
     });
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-red); padding: 40px 0;">Failed to fetch screen datasets.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-red); padding: 40px 0; font-family: var(--td-font-sans);">Failed to fetch screen datasets.</td></tr>`;
     console.error(err);
   }
 }
 
-// ── tab view management toggles ───────────────────────────────────────────
+// ── Tab Controller ────────────────────────────────────────────────────────
 function tdTab(name, el){
   document.querySelectorAll('.td-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.td-tab').forEach(b=>b.classList.remove('active'));
@@ -986,7 +1210,7 @@ function tdTab(name, el){
   el.classList.add('active');
 }
 
-// ── initialization setup loop listeners ──────────────────────────────────
+// ── Initialization Setup ──────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   const sliders = ["gm", "roce", "fcf", "de", "pegy", "pe", "rating", "wiggle"];
   sliders.forEach(key => {
@@ -997,7 +1221,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// ── admin controller authorization pipelines ──────────────────────────────
+// ── Admin Security Authorization ─────────────────────────────────────────
 function loginAsAdmin() {
     const password = prompt("Enter Admin Password:");
     if (!password) return;
