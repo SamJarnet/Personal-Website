@@ -42,20 +42,13 @@ def projects():
 def about():
     return render_template("about.html")
 
-# --- THIS KEEPS YOUR WEBSITE SERVER RUNNABLE ---
 if __name__ == "__main__":
-    import sys
-    host = "0.0.0.0"
-    port = 5000
-
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     args = parser.parse_args()
 
-    host = args.host
-    port = args.port
-
-    # Launches the normal Flask development server with reloaders enabled
-    app.run(host=host, port=port, debug=True)
+    # Disable debug by default on Pi to save CPU cycles and prevent execution lag
+    app.run(host=args.host, port=args.port, debug=args.debug)

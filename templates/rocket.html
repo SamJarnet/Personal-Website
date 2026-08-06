@@ -131,6 +131,11 @@
 
     let currentMode = "manual"; 
     let keys = { w: false, a: false, d: false };
+    
+    // Lock variables to prevent out-of-order HTTP requests over latency-heavy connections
+    let isFetching = false;
+    let lastFrameTime = 0;
+    const FRAME_INTERVAL = 33; // Target ~30 FPS
 
     function getManualAction() {
         if (keys.w && keys.a) return 4;
@@ -142,6 +147,10 @@
     }
 
     async function stepSimulation(isReset = false) {
+        // Skip request if previous fetch is still in flight to avoid network pileups
+        if (isFetching && !isReset) return;
+        isFetching = true;
+
         const payload = {
             reset: isReset,
             mode: currentMode,
@@ -163,6 +172,8 @@
             }
         } catch (err) {
             console.error("Network communication failure:", err);
+        } finally {
+            isFetching = false;
         }
     }
 
@@ -244,6 +255,15 @@
         drawRocket(webX, webY, frame.angle, frame.thrusting);
     }
 
+    // Controlled game loop replacing setInterval
+    function gameLoop(timestamp) {
+        if (timestamp - lastFrameTime >= FRAME_INTERVAL) {
+            stepSimulation(false);
+            lastFrameTime = timestamp;
+        }
+        requestAnimationFrame(gameLoop);
+    }
+
     window.addEventListener("keydown", (e) => {
         const key = e.key.toLowerCase();
         if (key === 'w' || key === 'a' || key === 'd') {
@@ -278,7 +298,9 @@
         stepSimulation(true);
     });
 
-    setInterval(() => stepSimulation(false), 33);
-    window.onload = () => stepSimulation(true);
+    window.onload = async () => {
+        await stepSimulation(true);
+        requestAnimationFrame(gameLoop);
+    };
 </script>
 {% endblock %}
