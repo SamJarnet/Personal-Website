@@ -445,30 +445,102 @@ def get_history(symbol):
 
 
 # ── screener endpoints ────────────────────────────────────────────────────────
-sync_status = {"running": False}
+sync_status = {
+    "running": False,
+    "progress": 0,
+    "total": 0,
+    "current_ticker": "",
+    "message": "Idle",
+    "last_run": None,
+    "errors": []
+}
+
 def run_sync_in_background():
+    """Background worker function executing the ticker data download sequence."""
+    global sync_status
     sync_status["running"] = True
+    sync_status["errors"] = []
+    sync_status["message"] = "Initializing dataset sync..."
+    
     try:
-        # Put your long-running sync loop code here
-        print("Sync started...")
-        # ... your ticker fetching logic ...
-        print("Sync completed successfully!")
+        tickers = get_ticker_list()
+        sync_status["total"] = len(tickers)
+        sync_status["progress"] = 0
+        
+        os.makedirs(DATA_DIR, exist_ok=True)
+        
+        for index, symbol in enumerate(tickers, 1):
+            sync_status["current_ticker"] = symbol
+            sync_status["progress"] = index
+            sync_status["message"] = f"Syncing {symbol} ({index}/{len(tickers)})"
+            
+            try:
+                t = yf.Ticker(symbol)
+                
+                # 1. Fetch & cache Info metadata
+                info = t.info or {}
+                with open(os.path.join(DATA_DIR, f"{symbol}_info.json"), "w") as f:
+                    json.dump(info, f, indent=2)
+                    
+                # 2. Fetch & cache Financials CSV
+                fin_df = t.financials
+                if fin_df is not None and not fin_df.empty:
+                    fin_df.to_csv(os.path.join(DATA_DIR, f"{symbol}_financials.csv"))
+                    
+                # 3. Fetch & cache Balance Sheet CSV
+                bs_df = t.balance_sheet
+                if bs_df is not None and not bs_df.empty:
+                    bs_df.to_csv(os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv"))
+                    
+                # 4. Fetch & cache Insider Transactions CSV
+                insider_df = t.insider_transactions
+                if insider_df is not None and not insider_df.empty:
+                    insider_df.to_csv(os.path.join(DATA_DIR, f"{symbol}_insider.csv"))
+
+            except Exception as e:
+                err_msg = f"Failed {symbol}: {str(e)}"
+                print(err_msg)
+                sync_status["errors"].append(err_msg)
+            
+            # Rate-limiting delay: Prevents Pi CPU overheating & Yahoo Finance IP blocks
+            time.sleep(1.0)
+            
+        sync_status["message"] = f"Completed sync of {len(tickers)} tickers!"
+        sync_status["last_run"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        
     except Exception as e:
-        print(f"Sync failed: {e}")
+        sync_status["message"] = f"Fatal sync error: {str(e)}"
+        print(f"Critical sync thread exception: {e}")
+        
     finally:
         sync_status["running"] = False
+        sync_status["current_ticker"] = ""
+
 
 @trading_bp.route("/api/trading/update_screener_data", methods=["POST"])
 def update_screener_data():
+    """Trigger background dataset sync."""
     if sync_status["running"]:
-        return jsonify({"message": "Sync is already in progress!"}), 400
+        return jsonify({
+            "status": "busy",
+            "message": f"Sync currently running ({sync_status['progress']}/{sync_status['total']} tickers processed)."
+        }), 400
 
-    # Start the task in a separate background thread
+    # Launch worker in daemon thread
     thread = threading.Thread(target=run_sync_in_background)
     thread.daemon = True
     thread.start()
 
-    return jsonify({"message": "Sync started in background on the Pi!"})
+    return jsonify({
+        "status": "started",
+        "message": "Background sync started successfully on the Pi."
+    })
+
+
+@trading_bp.route("/api/trading/sync_status", methods=["GET"])
+def get_sync_status():
+    """Poll progress status from frontend UI."""
+    return jsonify(sync_status)
 
 @trading_bp.route("/api/trading/screen", methods=["POST"])
 def screen_tickers():
