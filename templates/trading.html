@@ -252,7 +252,6 @@
     margin: 0 6px;
   }
 
-  /* Replace floating rounded pills with compact segmented block controls */
   .td-pill {
     background: var(--td-bg);
     border: 1px solid var(--td-border);
@@ -545,120 +544,22 @@
   </div>
 
   <div id="td-tabs">
-    <button id="td-tab-btn-market" class="td-tab active" onclick="tdTab('market',this)">Market Data</button>
+    <button id="td-tab-btn-screener" class="td-tab active" onclick="tdTab('screener',this)">Stock Screener</button>
+    <button id="td-tab-btn-market"   class="td-tab"        onclick="tdTab('market',this)">Market Data</button>
     <button id="td-tab-btn-backtest" class="td-tab"        onclick="tdTab('backtest',this)">Backtest Engine</button>
-    <button id="td-tab-btn-screener" class="td-tab"        onclick="tdTab('screener',this)">Stock Screener</button>
   </div>
 
-  <div id="td-market" class="td-panel active">
-    <!-- LEFT SIDEBAR -->
-    <div class="td-sidebar">
-      <div class="td-co-hdr">
-        <div id="td-co-name">—</div>
-        <div id="td-co-sector"></div>
-        <span id="td-co-price">—</span><span id="td-co-chg"></span>
-      </div>
-      <div class="td-scroll" id="td-stats">
-        <div class="td-empty"><span class="ico">[ NO SYMBOL LOADED ]</span></div>
-      </div>
-    </div>
-
-    <!-- MAIN INTERFACE -->
-    <div class="td-main">
-      <div class="td-ctrl">
-        <span class="td-ctrl-lbl">Chart:</span>
-        <button class="td-pill active" onclick="tdChartType('price',this)">Price</button>
-        <button class="td-pill"        onclick="tdChartType('returns',this)">Returns</button>
-        <button class="td-pill"        onclick="tdChartType('volume',this)">Volume</button>
-        <button class="td-pill"        onclick="tdChartType('ma',this)">Moving Avgs</button>
-        <div class="td-sep"></div>
-        <span class="td-ctrl-lbl">Period:</span>
-        <button class="td-pill"        onclick="tdPeriod('1W',this)">1W</button>
-        <button class="td-pill"        onclick="tdPeriod('1M',this)">1M</button>
-        <button class="td-pill"        onclick="tdPeriod('3M',this)">3M</button>
-        <button class="td-pill"        onclick="tdPeriod('6M',this)">6M</button>
-        <button class="td-pill active" onclick="tdPeriod('1Y',this)">1Y</button>
-        <button class="td-pill"        onclick="tdPeriod('2Y',this)">2Y</button>
-        <button class="td-pill"        onclick="tdPeriod('5Y',this)">5Y</button>
-        <button class="td-pill"        onclick="tdPeriod('All',this)">All</button>
-      </div>
-
-      <div class="td-chart-container-block">
-        <div class="td-chart-wrap" id="td-mwrap">
-          <div class="td-empty" id="td-mempty"><span class="ico">[ SEARCH SYMBOL TO DISPLAY CHART ]</span></div>
-          <canvas id="td-mchart" style="display:none"></canvas>
-          <div class="td-loading" id="td-mload">LOADING MARKET DATA…</div>
-        </div>
-      </div>
-
-      <div class="td-insights-grid" id="td-insights-grid" style="display: none;">
-        <div class="td-insight-card">
-          <div class="td-insight-title">Business Profile Summary</div>
-          <div id="td-co-summary-text">No summary loaded.</div>
-        </div>
-        
-        <div class="td-insight-card">
-          <div class="td-insight-title">Recent News & Context Feed</div>
-          <div id="td-news-feed">
-            <div class="td-news-item">
-              <a href="#" class="td-news-headline" onclick="return false;">WORK IN PROGRESS</a>
-              <span class="td-news-meta">Example • 2 hours ago</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <div id="td-backtest" class="td-panel">
-    <!-- BACKTEST SIDEBAR -->
-    <div class="td-bt-sidebar">
-      <div class="td-params">
-        <h3>Strategy Parameters</h3>
-        <div class="td-prow"><label>Capital ($)</label><input id="p-cap"    value="10000"/></div>
-        <div class="td-prow"><label>Fast SMA</label>   <input id="p-fast"   value="20"/></div>
-        <div class="td-prow"><label>Slow SMA</label>   <input id="p-slow"   value="50"/></div>
-        <div class="td-prow"><label>Stop-Loss MA</label><input id="p-stop"  value="150"/></div>
-        <div class="td-prow">
-          <label>Period</label>
-          <select id="p-period">
-            <option>1Y</option><option selected>2Y</option>
-            <option>5Y</option><option>All</option>
-          </select>
-        </div>
-      </div>
-      <button id="td-bt-run" onclick="tdRunBacktest()">RUN BACKTEST ENGINE</button>
-      <div class="td-res-scroll" id="td-bt-res">
-        <div class="td-empty" style="padding:16px 0"><span class="ico">[ CONFIGURE & RUN ]</span></div>
-      </div>
-    </div>
-
-    <div class="td-main">
-      <div class="td-ctrl">
-        <span class="td-ctrl-lbl">View:</span>
-        <button class="td-pill active" onclick="tdBtView('strategy',this)">Strategy</button>
-        <button class="td-pill"        onclick="tdBtView('equity',this)">Equity Curve</button>
-        <button class="td-pill"        onclick="tdBtView('drawdown',this)">Drawdown</button>
-      </div>
-      <div class="td-chart-container-block" id="td-bwrap" style="border-bottom: 1px solid var(--td-border);">
-        <div class="td-empty" id="td-bempty"><span class="ico">[ RUN BACKTEST TO VIEW GRAPH RESULTS ]</span></div>
-        <canvas id="td-bchart" style="display:none"></canvas>
-        <div class="td-loading" id="td-bload">EXECUTING STRATEGY BACKTEST…</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="td-screener" class="td-panel">
+  <!-- SCREENER PANEL (DEFAULT ACTIVE) -->
+  <div id="td-screener" class="td-panel active">
     <div class="td-bt-sidebar">
       <div class="td-params">
         <h3>Rating Filters</h3>
         <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 10px; margin-bottom: 12px;">
           <div class="td-range-hdr">
             <span class="td-stat-l" style="color: var(--td-accent); font-weight: bold;">Minimum Rating Filter</span>
-            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);"><span id="lbl_rating">4</span>/6 Metrics</span>
+            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);"><span id="lbl_rating">4</span>/7 Metrics</span>
           </div>
-          <input type="range" class="td-range-input" id="filter_rating" min="0" max="6" step="1" value="4">
+          <input type="range" class="td-range-input" id="filter_rating" min="0" max="7" step="1" value="4">
         </div>
 
         <div class="td-range-box" style="border-bottom: 1px dashed var(--td-border); padding-bottom: 10px; margin-bottom: 12px;">
@@ -712,6 +613,13 @@
           </div>
           <input type="range" class="td-range-input" id="filter_pe" min="1" max="100" value="20">
         </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr">
+            <span class="td-stat-l">Dividend Yield</span>
+            <span class="td-pos" style="font-weight: bold; font-family: var(--td-font-mono);">&gt; <span id="lbl_div_yield">0</span>%</span>
+          </div>
+          <input type="range" class="td-range-input" id="filter_div_yield" min="0" max="15" step="0.5" value="0">
+        </div>
       </div>
       <button id="btnRunScreen" onclick="tdRunScreen()">EXECUTE QUANT SEARCH</button>
       <button id="admin-login-btn" class="td-admin-ctrl-btn">🔒 Admin Login</button>
@@ -741,14 +649,116 @@
               <th>PEGY</th>
               <th>P/E</th>
               <th>Div Yield</th>
+              <th>MoS</th>
+              <th>Insider</th>
             </tr>
           </thead>
           <tbody id="screenerResultsTable">
             <tr>
-              <td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">Configure rules and click 'Execute Quant Search'</td>
+              <td colspan="12" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">Configure rules and click 'Execute Quant Search'</td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET DATA PANEL -->
+  <div id="td-market" class="td-panel">
+    <!-- LEFT SIDEBAR -->
+    <div class="td-sidebar">
+      <div class="td-co-hdr">
+        <div id="td-co-name">—</div>
+        <div id="td-co-sector"></div>
+        <span id="td-co-price">—</span><span id="td-co-chg"></span>
+      </div>
+      <div class="td-scroll" id="td-stats">
+        <div class="td-empty"><span class="ico">[ NO SYMBOL LOADED ]</span></div>
+      </div>
+    </div>
+
+    <!-- MAIN INTERFACE -->
+    <div class="td-main">
+      <div class="td-ctrl">
+        <span class="td-ctrl-lbl">Chart:</span>
+        <button class="td-pill active" onclick="tdChartType('price',this)">Price</button>
+        <button class="td-pill"        onclick="tdChartType('returns',this)">Returns</button>
+        <button class="td-pill"        onclick="tdChartType('volume',this)">Volume</button>
+        <button class="td-pill"        onclick="tdChartType('ma',this)">Moving Avgs</button>
+        <div class="td-sep"></div>
+        <span class="td-ctrl-lbl">Period:</span>
+        <button class="td-pill"        onclick="tdPeriod('1W',this)">1W</button>
+        <button class="td-pill"        onclick="tdPeriod('1M',this)">1M</button>
+        <button class="td-pill"        onclick="tdPeriod('3M',this)">3M</button>
+        <button class="td-pill"        onclick="tdPeriod('6M',this)">6M</button>
+        <button class="td-pill active" onclick="tdPeriod('1Y',this)">1Y</button>
+        <button class="td-pill"        onclick="tdPeriod('2Y',this)">2Y</button>
+        <button class="td-pill"        onclick="tdPeriod('5Y',this)">5Y</button>
+        <button class="td-pill"        onclick="tdPeriod('All',this)">All</button>
+      </div>
+
+      <div class="td-chart-container-block">
+        <div class="td-chart-wrap" id="td-mwrap">
+          <div class="td-empty" id="td-mempty"><span class="ico">[ SEARCH SYMBOL TO DISPLAY CHART ]</span></div>
+          <canvas id="td-mchart" style="display:none"></canvas>
+          <div class="td-loading" id="td-mload">LOADING MARKET DATA…</div>
+        </div>
+      </div>
+
+      <div class="td-insights-grid" id="td-insights-grid" style="display: none;">
+        <div class="td-insight-card">
+          <div class="td-insight-title">Business Profile Summary</div>
+          <div id="td-co-summary-text">No summary loaded.</div>
+        </div>
+        
+        <div class="td-insight-card">
+          <div class="td-insight-title">Insider Activity & Context Feed</div>
+          <div id="td-news-feed">
+            <div class="td-news-item">
+              <span class="td-news-meta">Search a symbol to load activity…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BACKTEST ENGINE PANEL -->
+  <div id="td-backtest" class="td-panel">
+    <!-- BACKTEST SIDEBAR -->
+    <div class="td-bt-sidebar">
+      <div class="td-params">
+        <h3>Strategy Parameters</h3>
+        <div class="td-prow"><label>Capital ($)</label><input id="p-cap"    value="10000"/></div>
+        <div class="td-prow"><label>Fast SMA</label>   <input id="p-fast"   value="20"/></div>
+        <div class="td-prow"><label>Slow SMA</label>   <input id="p-slow"   value="50"/></div>
+        <div class="td-prow"><label>Stop-Loss MA</label><input id="p-stop"  value="150"/></div>
+        <div class="td-prow">
+          <label>Period</label>
+          <select id="p-period">
+            <option>1Y</option><option selected>2Y</option>
+            <option>5Y</option><option>All</option>
+          </select>
+        </div>
+      </div>
+      <button id="td-bt-run" onclick="tdRunBacktest()">RUN BACKTEST ENGINE</button>
+      <div class="td-res-scroll" id="td-bt-res">
+        <div class="td-empty" style="padding:16px 0"><span class="ico">[ CONFIGURE & RUN ]</span></div>
+      </div>
+    </div>
+
+    <div class="td-main">
+      <div class="td-ctrl">
+        <span class="td-ctrl-lbl">View:</span>
+        <button class="td-pill active" onclick="tdBtView('strategy',this)">Strategy</button>
+        <button class="td-pill"        onclick="tdBtView('equity',this)">Equity Curve</button>
+        <button class="td-pill"        onclick="tdBtView('drawdown',this)">Drawdown</button>
+      </div>
+      <div class="td-chart-container-block" id="td-bwrap" style="border-bottom: 1px solid var(--td-border);">
+        <div class="td-empty" id="td-bempty"><span class="ico">[ RUN BACKTEST TO VIEW GRAPH RESULTS ]</span></div>
+        <canvas id="td-bchart" style="display:none"></canvas>
+        <div class="td-loading" id="td-bload">EXECUTING STRATEGY BACKTEST…</div>
       </div>
     </div>
   </div>
@@ -793,7 +803,7 @@ const TF = {
 
 const PRICE_K = new Set(['currentPrice','previousClose','open','dayLow','dayHigh',
   'fiftyTwoWeekLow','fiftyTwoWeekHigh','targetMeanPrice','targetHighPrice',
-  'targetLowPrice','bookValue','dividendRate','trailingEps','forwardEps']);
+  'targetLowPrice','bookValue','dividendRate','trailingEps','forwardEps','intrinsicValue']);
 const LARGE_K = new Set(['freeCashflow','operatingCashflow','totalRevenue','grossProfits',
   'ebitda','netIncomeToCommon','marketCap','enterpriseValue','totalCash','totalDebt',
   'sharesOutstanding','floatShares']);
@@ -802,6 +812,7 @@ const PCT_K   = new Set(['dividendYield','payoutRatio','grossMargins','operating
   'heldPercentInsiders','heldPercentInstitutions']);
 
 function tfmt(k,v){
+  if(k === 'marginOfSafety') return v==null ? '—' : Number(v).toFixed(2)+'%';
   if(PRICE_K.has(k)) return TF.price(v);
   if(LARGE_K.has(k)) return TF.large(v);
   if(PCT_K.has(k))   return TF.pct(v);
@@ -865,6 +876,7 @@ async function tdSearch(targetTicker) {
   try {
     const q = await fetch(`/api/trading/quote/${sym}`).then(r=>{ if(!r.ok) throw new Error('Not found'); return r.json(); });
     tdRenderQuote(q);
+    tdFetchInsider(sym);
     await tdFetchHistory(sym, tdPer);
     tdEl('td-status').textContent = 'Updated '+new Date().toLocaleTimeString();
   } catch(e) {
@@ -906,7 +918,7 @@ function tdRenderQuote(q) {
 
   const sections = [
     ['Price Info',[['currentPrice','Price'],['previousClose','Prev Close'],['open','Open'],['dayLow','Day Low'],['dayHigh','Day High'],['fiftyTwoWeekLow','52W Low'],['fiftyTwoWeekHigh','52W High']]],
-    ['Valuation',[['trailingPE','P/E (TTM)'],['forwardPE','P/E (Fwd)'],['priceToBook','P/B'],['priceToSalesTrailing12Months','P/S'],['enterpriseToEbitda','EV/EBITDA'],['marketCap','Mkt Cap'],['enterpriseValue','EV']]],
+    ['Valuation & Intrinsic Value',[['trailingPE','P/E (TTM)'],['forwardPE','P/E (Fwd)'],['priceToBook','P/B'],['priceToSalesTrailing12Months','P/S'],['enterpriseToEbitda','EV/EBITDA'],['marketCap','Mkt Cap'],['enterpriseValue','EV'],['intrinsicValue','Intrinsic Val'],['marginOfSafety','Margin Safety']]],
     ['Cash Flow & Earnings',[['freeCashflow','Free Cash Flow'],['operatingCashflow','Op CF'],['totalRevenue','Revenue'],['grossProfits','Gross Profit'],['ebitda','EBITDA'],['netIncomeToCommon','Net Income'],['trailingEps','EPS (TTM)'],['forwardEps','EPS (Fwd)']]],
     ['Growth & Margins',[['revenueGrowth','Rev Growth'],['earningsGrowth','EPS Growth'],['grossMargins','Gross Margin'],['operatingMargins','Op Margin'],['profitMargins','Net Margin'],['returnOnEquity','ROE'],['returnOnAssets','ROA']]],
     ['Balance Sheet',[['totalCash','Cash'],['totalDebt','Debt'],['debtToEquity','Debt/Eq'],['currentRatio','Current Ratio'],['quickRatio','Quick Ratio'],['bookValue','Book Val/Sh']]],
@@ -924,6 +936,48 @@ function tdRenderQuote(q) {
       d.innerHTML=`<span class="td-stat-l">${label}</span><span class="td-stat-v">${v!=null?tfmt(key,v):'—'}</span>`;
       cont.appendChild(d);
     }
+  }
+}
+
+// ── Fetch & Render Insider Activity ────────────────────────────────────────
+async function tdFetchInsider(sym) {
+  try {
+    const data = await fetch(`/api/trading/insider/${sym}`).then(r => r.json());
+    const newsFeed = tdEl('td-news-feed');
+    newsFeed.innerHTML = '';
+    
+    if (data.signal && data.signal !== '—') {
+      const sigDiv = document.createElement('div');
+      sigDiv.className = 'td-news-item';
+      const sigColor = data.signal === 'Buying' ? TC.green : (data.signal === 'Selling' ? TC.red : TC.sub);
+      sigDiv.innerHTML = `<span style="font-weight:700; color:${sigColor}; font-family: var(--td-font-mono);">INSIDER SIGNAL: ${data.signal}</span>`;
+      newsFeed.appendChild(sigDiv);
+    }
+
+    if (data.transactions && data.transactions.length > 0) {
+      data.transactions.slice(0, 5).forEach(tx => {
+        const item = document.createElement('div');
+        item.className = 'td-news-item';
+        
+        const reporter = tx.filerName || tx.insider || tx.Insider || tx.name || 'Insider';
+        const relation = tx.position || tx.title || tx.Position || tx.relation || '';
+        const rawShares = tx.shares ?? tx.Shares ?? tx.sharesTransacted ?? tx.amount;
+        const shares = (rawShares !== undefined && rawShares !== null) ? Number(rawShares).toLocaleString() : '—';
+        const date = tx.startDate || tx.date || tx.Date || tx.start_date || tx.Start_Date || '';
+
+        item.innerHTML = `
+          <a href="#" class="td-news-headline" onclick="return false;">
+            ${reporter} ${relation ? '(' + relation + ')' : ''}
+          </a>
+          <span class="td-news-meta">${shares} shares ${date ? '• ' + date : ''}</span>
+        `;
+        newsFeed.appendChild(item);
+      });
+    } else {
+      newsFeed.innerHTML = '<div class="td-news-item"><span class="td-news-meta">No recent insider transaction filings recorded for this asset.</span></div>';
+    }
+  } catch(e) {
+    console.error('Insider fetch error:', e);
   }
 }
 
@@ -1149,7 +1203,7 @@ function tdUpdateCache() {
 
 async function tdRunScreen() {
   const tableBody = tdEl("screenerResultsTable");
-  tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px 0; color: var(--td-accent); font-family: var(--td-font-sans);">Analyzing tickers...</td></tr>`;
+  tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 40px 0; color: var(--td-accent); font-family: var(--td-font-sans);">Analyzing tickers...</td></tr>`;
   
   const payload = {
     min_gm: parseFloat(tdEl("filter_gm").value),
@@ -1158,6 +1212,7 @@ async function tdRunScreen() {
     max_debt_equity: parseFloat(tdEl("filter_de").value),
     max_pegy: parseFloat(tdEl("filter_pegy").value),
     max_pe: parseFloat(tdEl("filter_pe").value),
+    min_div_yield: parseFloat(tdEl("filter_div_yield").value),
     min_rating: parseInt(tdEl("filter_rating").value),
     wiggle_room: parseFloat(tdEl("filter_wiggle").value)
   };
@@ -1169,7 +1224,7 @@ async function tdRunScreen() {
 
     tableBody.innerHTML = "";
     if (!data.results || data.results.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">No tickers match criteria. Loosen parameters or sync server cache folder.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">No tickers match criteria. Loosen parameters or sync server cache folder.</td></tr>`;
       return;
     }
     data.results.forEach(row => {
@@ -1181,6 +1236,9 @@ async function tdRunScreen() {
       const roceDisp = row.roce === "—" ? "—" : row.roce + "%";
       const fcfDisp = row.fcf === "—" ? "—" : "$" + row.fcf + "B";
       const divDisp = row.dividend_yield === "—" ? "—" : row.dividend_yield + "%";
+      const mosDisp = row.margin_of_safety === "—" ? "—" : row.margin_of_safety + "%";
+      const insiderDisp = row.insider || "—";
+      const insiderClass = row.insider === "Buying" ? "td-pos" : (row.insider === "Selling" ? "td-neg" : "");
 
       tr.innerHTML = `
         <td style="font-weight: bold; color: var(--td-accent);">${row.symbol}</td>
@@ -1193,11 +1251,13 @@ async function tdRunScreen() {
         <td>${row.pegy}</td>
         <td>${row.pe}</td>
         <td style="color: var(--td-blue); font-weight: bold;">${divDisp}</td>
+        <td>${mosDisp}</td>
+        <td class="${insiderClass}" style="font-weight: bold;">${insiderDisp}</td>
       `;
       tableBody.appendChild(tr);
     });
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--td-red); padding: 40px 0; font-family: var(--td-font-sans);">Failed to fetch screen datasets.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--td-red); padding: 40px 0; font-family: var(--td-font-sans);">Failed to fetch screen datasets.</td></tr>`;
     console.error(err);
   }
 }
@@ -1212,13 +1272,16 @@ function tdTab(name, el){
 
 // ── Initialization Setup ──────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  const sliders = ["gm", "roce", "fcf", "de", "pegy", "pe", "rating", "wiggle"];
+  const sliders = ["gm", "roce", "fcf", "de", "pegy", "pe", "div_yield", "rating", "wiggle"];
   sliders.forEach(key => {
     const sliderEl = tdEl(`filter_${key}`); const labelEl = tdEl(`lbl_${key}`);
     if (sliderEl && labelEl) {
       sliderEl.addEventListener("input", function() { labelEl.innerText = this.value; });
     }
   });
+
+  // Automatically execute the screener search on page load
+  tdRunScreen();
 });
 
 // ── Admin Security Authorization ─────────────────────────────────────────

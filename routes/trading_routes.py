@@ -71,6 +71,32 @@ def clean(val):
     return val
 
 
+def df_to_records(df):
+    """Converts a yfinance DataFrame (insider data etc.) into clean JSON records."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+    out = []
+    for _, row in df.reset_index().iterrows():
+        rec = {}
+        for k, v in row.items():
+            if hasattr(v, "strftime"):
+                try:
+                    v = v.strftime("%Y-%m-%d")
+                except Exception:
+                    v = str(v)
+            elif isinstance(v, (np.integer, np.floating)):
+                v = clean(v)
+            else:
+                try:
+                    if pd.isna(v):
+                        v = None
+                except (TypeError, ValueError):
+                    pass
+            rec[str(k)] = v
+        out.append(rec)
+    return out
+
+
 def series_to_json(s: pd.Series):
     """Maps Pandas series data directly into Chart.js scannable configurations."""
     labels, values = [], []
@@ -86,16 +112,84 @@ def series_to_json(s: pd.Series):
     return {"labels": labels, "values": values}
 
 
+# ── margin of safety (Graham revised formula) ─────────────────────────────────
+
+_bond_yield_cache = {"date": None, "value": 4.5}
+
+def get_current_bond_yield():
+    """Fetches the 10Y US Treasury yield (^TNX) as a risk-free rate proxy for the
+    Graham formula, cached once per day. Falls back to a conservative 4.5% if the
+    lookup fails (e.g. no network, or the ticker's home market has no equivalent)."""
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    if _bond_yield_cache["date"] == today_str:
+        return _bond_yield_cache["value"]
+    try:
+        tnx = yf.Ticker("^TNX").history(period="5d")
+        if tnx is not None and not tnx.empty:
+            y = float(tnx["Close"].dropna().iloc[-1])
+            if y > 0:
+                _bond_yield_cache["value"] = y
+    except Exception as e:
+        print(f"Error fetching bond yield, using fallback: {e}")
+    _bond_yield_cache["date"] = today_str
+    return _bond_yield_cache["value"]
+
+
+def calculate_margin_of_safety(info, current_yield=None):
+    if current_yield is None:
+        current_yield = get_current_bond_yield()
+
+    current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+    eps = info.get("trailingEps")
+
+    if not current_price or not eps or eps <= 0 or not current_yield:
+        return {"intrinsic_value": None, "margin_of_safety": None}
+
+    # Normalize Pence (GBp/GBX) to Pounds (GBP) for UK market tickers
+    currency = info.get("currency", "")
+    symbol = (info.get("symbol") or "").upper()
+    if currency in ["GBp", "GBX"] or symbol.endswith(".L"):
+        current_price = current_price / 100.0
+
+    growth_rate = info.get("earningsGrowth")
+    if growth_rate is None:
+        growth_rate = 0.05  # conservative default when growth data is missing
+    growth_pct = growth_rate * 100
+    # Clip to a sane range so a single noisy quarter doesn't blow up the formula
+    growth_pct = max(0.0, min(growth_pct, 25.0))
+
+    intrinsic_value = (eps * (8.5 + (2 * growth_pct)) * 4.4) / current_yield
+    if intrinsic_value <= 0:
+        return {"intrinsic_value": None, "margin_of_safety": None}
+
+    margin_of_safety = (intrinsic_value - current_price) / intrinsic_value
+    return {
+        "intrinsic_value": round(intrinsic_value, 2),
+        "margin_of_safety": round(margin_of_safety * 100, 2),
+    }
+
+
 # ── screener caching and math helpers ─────────────────────────────────────────
 
 def get_ticker_list():
-    """Reads tickers from tickers.txt or populates a default list."""
+    """Reads tickers from tickers.txt or populates a default list.
+
+    Lines starting with '#' are section-header comments (used to bundle
+    tickers by parent index, e.g. FTSE 100 / DAX 40 / CAC 40) and are
+    skipped, as are blank lines.
+    """
     if os.path.exists(TICKERS_FILE):
         with open(TICKERS_FILE, "r") as f:
-            tickers = [line.strip().upper() for line in f if line.strip()]
+            tickers = [
+                line.strip().upper() for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
             if tickers:
                 return tickers
-    default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'NFLX', 'AMD', 'INTC']
+    # UK & EU large-cap default (LSE / Xetra / Euronext Paris), ETFs excluded
+    default_tickers = ['AZN.L', 'SHEL.L', 'HSBA.L', 'ULVR.L', 'BP.L',
+                        'SAP.DE', 'SIE.DE', 'ALV.DE',
+                        'MC.PA', 'OR.PA', 'TTE.PA']
     with open(TICKERS_FILE, "w") as f:
         for t in default_tickers:
             f.write(f"{t}\n")
@@ -109,6 +203,7 @@ def update_ticker_data(symbol):
     info_file = os.path.join(DATA_DIR, f"{symbol}_info.json")
     financials_file = os.path.join(DATA_DIR, f"{symbol}_financials.csv")
     balance_file = os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv")
+    insider_file = os.path.join(DATA_DIR, f"{symbol}_insider.json")
     
     ticker = yf.Ticker(symbol)
     today_str = datetime.today().strftime("%Y-%m-%d")
@@ -136,6 +231,20 @@ def update_ticker_data(symbol):
                 bs.to_csv(balance_file)
         except Exception as e:
             print(f"Error updating fundamentals for {symbol}: {e}")
+
+        # Insider activity: Form 4-style data. Note this is a US SEC filing
+        # concept, so LSE/Xetra/Euronext names will typically come back empty
+        # via yfinance — that's expected, not a bug, and is handled downstream.
+        try:
+            insider_data = {
+                "transactions": df_to_records(ticker.get_insider_transactions()),
+                "roster":       df_to_records(ticker.get_insider_roster_holders()),
+                "purchases":    df_to_records(ticker.get_insider_purchases()),
+            }
+            with open(insider_file, "w") as f:
+                json.dump(insider_data, f)
+        except Exception as e:
+            print(f"Error updating insider data for {symbol}: {e}")
 
     # Incremental Price Data Update (Fetch only missing days)
     try:
@@ -224,9 +333,47 @@ def compute_metrics(info, financials=None, balance_sheet=None):
     metrics["roce"] = roce
 
     # 7. Dividend Yield
-    metrics["dividend_yield"] = dy * 100 if dy is not None else None
+    metrics["dividend_yield"] = dy if dy is not None else None
+
+    # 8. Margin of Safety (revised Graham formula)
+    mos = calculate_margin_of_safety(info)
+    metrics["intrinsic_value"] = mos["intrinsic_value"]
+    metrics["margin_of_safety"] = mos["margin_of_safety"]
 
     return metrics
+
+
+def derive_insider_signal(purchases_records):
+    """Best-effort read of yfinance's 'insider purchases last 6m' summary table
+    into a simple Buying / Selling / Flat / No Data signal for the screener.
+    yfinance's exact column names can vary by ticker/market, so this scans for
+    a 'net' row and the first numeric value on it rather than a hard-coded key."""
+    if not purchases_records:
+        return "—"
+    for rec in purchases_records:
+        label_val = next(iter(rec.values()), "")
+        if isinstance(label_val, str) and "net" in label_val.lower():
+            for k, v in rec.items():
+                if isinstance(v, (int, float)):
+                    if v > 0:
+                        return "Buying"
+                    if v < 0:
+                        return "Selling"
+                    return "Flat"
+    return "—"
+
+
+def load_insider_summary(symbol):
+    """Reads the cached insider file (written by update_ticker_data) for the screener."""
+    insider_file = os.path.join(DATA_DIR, f"{symbol}_insider.json")
+    if not os.path.exists(insider_file):
+        return "—"
+    try:
+        with open(insider_file, "r") as f:
+            data = json.load(f)
+        return derive_insider_signal(data.get("purchases", []))
+    except Exception:
+        return "—"
 
 
 # ── page routes ───────────────────────────────────────────────────────────────
@@ -248,7 +395,33 @@ def get_quote(symbol):
         out = {k: clean(info.get(k)) for k in STAT_KEYS}
         if out.get("currentPrice") is None:
             out["currentPrice"] = clean(info.get("regularMarketPrice"))
+
+        mos = calculate_margin_of_safety(info)
+        out["intrinsicValue"] = mos["intrinsic_value"]
+        out["marginOfSafety"] = mos["margin_of_safety"]
+
         return jsonify(out)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@trading_bp.route("/api/trading/insider/<symbol>")
+def get_insider(symbol):
+    """Live insider-activity lookup for the Market Data tab. Note: this is
+    based on US SEC Form 4 filings, so results are usually empty for LSE /
+    Xetra / Euronext-listed names via yfinance."""
+    try:
+        t = yf.Ticker(symbol.upper())
+        transactions = df_to_records(t.get_insider_transactions())
+        roster = df_to_records(t.get_insider_roster_holders())
+        purchases = df_to_records(t.get_insider_purchases())
+        return jsonify({
+            "symbol": symbol.upper(),
+            "transactions": transactions,
+            "roster": roster,
+            "purchases": purchases,
+            "signal": derive_insider_signal(purchases),
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -291,7 +464,6 @@ def update_screener_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @trading_bp.route("/api/trading/screen", methods=["POST"])
 def screen_tickers():
     try:
@@ -302,10 +474,11 @@ def screen_tickers():
         max_debt_equity = float(body.get("max_debt_equity", 0.5))
         max_pegy = float(body.get("max_pegy", 1.0))
         max_pe = float(body.get("max_pe", 20))
+        min_div_yield = float(body.get("min_div_yield", 0.0))  # Replaced min_mos with Dividend Yield (%)
         
-        # New Scoring & Rating inputs
+        # Scoring & Rating inputs
         min_rating = int(body.get("min_rating", 4))
-        wiggle_room = float(body.get("wiggle_room", 0))  # Provided as percentage (e.g., 5 means 5%)
+        wiggle_room = float(body.get("wiggle_room", 0))  # Provided as percentage
         
         # Compute modifiers based on wiggle room percentage
         w_lower = 1.0 - (wiggle_room / 100.0)
@@ -316,7 +489,6 @@ def screen_tickers():
         
         for symbol in tickers:
             try:
-
                 info_file = os.path.join(DATA_DIR, f"{symbol}_info.json")
                 if not os.path.exists(info_file):
                     continue
@@ -331,7 +503,11 @@ def screen_tickers():
                 m = compute_metrics(info, fin_df, bs_df)
                 m = {k: clean(v) for k, v in m.items()} 
 
-                # Evaluate the 6 distinct analytical criteria using wiggle room factors
+                # Convert dividend yield to percentage format if returned as a decimal
+                raw_dy = m.get("dividend_yield")
+                dy_pct = (raw_dy * 100.0) if (raw_dy is not None and raw_dy < 1.0) else raw_dy
+
+                # Evaluate the 7 distinct analytical criteria using wiggle room factors
                 score = 0
                 if m["gross_margin"] is not None and m["gross_margin"] >= (min_gm * w_lower): score += 1
                 if m["roce"] is not None and m["roce"] >= (min_roce * w_lower): score += 1
@@ -339,6 +515,7 @@ def screen_tickers():
                 if m["debt_equity"] is not None and m["debt_equity"] <= (max_debt_equity * w_upper): score += 1
                 if m["pegy"] is not None and m["pegy"] <= (max_pegy * w_upper): score += 1
                 if m["pe"] is not None and m["pe"] <= (max_pe * w_upper): score += 1
+                if dy_pct is not None and dy_pct >= (min_div_yield * w_lower): score += 1
                 
                 # Filter matches based on user's minimum rating selection
                 if score < min_rating: 
@@ -347,18 +524,21 @@ def screen_tickers():
                 results.append({
                     "symbol": symbol,
                     "name": info.get("longName", symbol),
-                    "rating": f"{score}/6",
+                    "rating": f"{score}/7",
                     "gross_margin": round(m["gross_margin"], 1) if m["gross_margin"] is not None else "—",
                     "roce": round(m["roce"], 1) if m["roce"] is not None else "—",
                     "fcf": round(m["fcf"], 2) if m["fcf"] is not None else "—",
                     "debt_equity": round(m["debt_equity"], 2) if m["debt_equity"] is not None else "—",
                     "pegy": round(m["pegy"], 2) if m["pegy"] is not None else "—",
                     "pe": round(m["pe"], 1) if m["pe"] is not None else "—",
-                    "dividend_yield": round(m["dividend_yield"], 2) if m["dividend_yield"] is not None else "—"
+                    "dividend_yield": round(dy_pct, 2) if dy_pct is not None else "—",
+                    "margin_of_safety": round(m["margin_of_safety"], 1) if m["margin_of_safety"] is not None else "—",
+                    "insider": load_insider_summary(symbol),
                 })
             except Exception as e:
                 print(f"Skipping {symbol}: {e}")
                 continue
+
         # Sort results by higher scoring setups first
         results.sort(key=lambda x: int(x["rating"].split('/')[0]), reverse=True)
         return jsonify({"results": results})
