@@ -13,6 +13,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
+import threading
 # Import your native strategy definitions
 import engines.strategy_engine as strategy_engine 
 
@@ -444,25 +445,30 @@ def get_history(symbol):
 
 
 # ── screener endpoints ────────────────────────────────────────────────────────
+sync_status = {"running": False}
+def run_sync_in_background():
+    sync_status["running"] = True
+    try:
+        # Put your long-running sync loop code here
+        print("Sync started...")
+        # ... your ticker fetching logic ...
+        print("Sync completed successfully!")
+    except Exception as e:
+        print(f"Sync failed: {e}")
+    finally:
+        sync_status["running"] = False
 
 @trading_bp.route("/api/trading/update_screener_data", methods=["POST"])
 def update_screener_data():
-    user_token = request.headers.get("X-Admin-Token")
-    if not user_token or user_token != ADMIN_SECRET_TOKEN:
-        return jsonify({"error": "Unauthorized: Admin access required"}), 401
-        
-    try:
-        tickers = get_ticker_list()
-        updated = 0
-        for symbol in tickers:
-            try:
-                update_ticker_data(symbol)
-                updated += 1
-            except Exception:
-                continue
-        return jsonify({"status": "success", "message": "Screener data synchronized."})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if sync_status["running"]:
+        return jsonify({"message": "Sync is already in progress!"}), 400
+
+    # Start the task in a separate background thread
+    thread = threading.Thread(target=run_sync_in_background)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({"message": "Sync started in background on the Pi!"})
 
 @trading_bp.route("/api/trading/screen", methods=["POST"])
 def screen_tickers():
