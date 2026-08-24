@@ -396,7 +396,7 @@
   }
   .td-prow input:focus, .td-prow select:focus { border-color: var(--td-accent); }
 
-  #td-bt-run {
+  #td-bt-run, #btnRunScreen {
     margin: 12px;
     background: var(--td-accent);
     color: #fff;
@@ -411,8 +411,8 @@
     transition: background .15s;
     flex-shrink: 0;
   }
-  #td-bt-run:hover { background: var(--td-accent-h); }
-  #td-bt-run:disabled { opacity: 0.5; cursor: default; }
+  #td-bt-run:hover, #btnRunScreen:hover { background: var(--td-accent-h); }
+  #td-bt-run:disabled, #btnRunScreen:disabled { opacity: 0.5; cursor: default; }
 
   .td-res-scroll { overflow-y: auto; flex: 1; }
   .td-res-hdr {
@@ -497,6 +497,13 @@
     position: sticky;
     top: 0;
     z-index: 2;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+  }
+  .td-table th:hover {
+    color: var(--td-text);
+    background: var(--td-surf-elev);
   }
   .td-table td {
     padding: 6px 12px;
@@ -629,9 +636,28 @@
       <div class="td-ctrl">
         <span class="td-ctrl-lbl">Data Setup:</span>
         <div id="admin-screener-wrapper" style="display: none; padding-left: 10px;">
+          <button id="btnEditTickers" class="td-pill" style="border-color: var(--td-blue); color: var(--td-blue); margin-right: 4px;" onclick="tdToggleTickerModal()">
+            ✏️ Manage Tickers List
+          </button>
           <button id="btnUpdateCache" class="td-pill" style="border-color: var(--td-yellow); color: var(--td-yellow);" onclick="tdUpdateCache()">
             Sync Server Data Folder (Incremental)
           </button>
+        </div>
+      </div>
+
+      <!-- EDIT TICKER LIST DRAWER -->
+      <div id="td-ticker-modal" style="display: none; background: var(--td-surf); border-bottom: 1px solid var(--td-border); padding: 12px 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <strong style="color: var(--td-accent); font-size: 11px; text-transform: uppercase;">Manage Ticker List (ticker.txt)</strong>
+          <button class="td-pill" onclick="tdToggleTickerModal()">✕ Close</button>
+        </div>
+        <p style="color: var(--td-sub); font-size: 11px; margin-bottom: 8px;">
+          Enter ticker symbols below (one per line). Lines starting with <code>#</code> are category header comments.
+        </p>
+        <textarea id="td-ticker-text" rows="6" style="width: 100%; background: var(--td-bg); color: var(--td-text); border: 1px solid var(--td-border); font-family: var(--td-font-mono); font-size: 11px; padding: 8px; border-radius: var(--td-r); outline: none; resize: vertical;"></textarea>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+          <button class="td-pill active" onclick="tdSaveTickers()">Save tickers.txt</button>
+          <span id="td-ticker-msg" style="color: var(--td-sub); font-size: 11px;"></span>
         </div>
       </div>
       
@@ -639,18 +665,18 @@
         <table class="td-table">
           <thead>
             <tr>
-              <th>Ticker</th>
-              <th>Company Name</th>
-              <th style="text-align: center;">Rating</th>
-              <th>Gross Margin</th>
-              <th>ROCE/ROE</th>
-              <th>FCF</th>
-              <th>Debt/Equity</th>
-              <th>PEGY</th>
-              <th>P/E</th>
-              <th>Div Yield</th>
-              <th>MoS</th>
-              <th>Insider</th>
+              <th id="th-symbol" onclick="tdSortScreen('symbol')">Ticker</th>
+              <th id="th-name" onclick="tdSortScreen('name')">Company Name</th>
+              <th id="th-rating" onclick="tdSortScreen('rating')" style="text-align: center;">Rating</th>
+              <th id="th-gross_margin" onclick="tdSortScreen('gross_margin')">Gross Margin</th>
+              <th id="th-roce" onclick="tdSortScreen('roce')">ROCE/ROE</th>
+              <th id="th-fcf" onclick="tdSortScreen('fcf')">FCF</th>
+              <th id="th-debt_equity" onclick="tdSortScreen('debt_equity')">Debt/Equity</th>
+              <th id="th-pegy" onclick="tdSortScreen('pegy')">PEGY</th>
+              <th id="th-pe" onclick="tdSortScreen('pe')">P/E</th>
+              <th id="th-dividend_yield" onclick="tdSortScreen('dividend_yield')">Div Yield</th>
+              <th id="th-margin_of_safety" onclick="tdSortScreen('margin_of_safety')">MoS</th>
+              <th id="th-insider" onclick="tdSortScreen('insider')">Insider</th>
             </tr>
           </thead>
           <tbody id="screenerResultsTable">
@@ -767,14 +793,19 @@
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
-let tdSym       = null;
-let tdPer       = '1Y';
-let tdCType     = 'price';
-let tdHCache    = {};
-let tdMChart    = null;
-let tdBChart    = null;
-let tdBData     = null;
-let tdBView     = 'strategy';
+let tdSym          = null;
+let tdPer          = '1Y';
+let tdCType        = 'price';
+let tdHCache       = {};
+let tdMChart       = null;
+let tdBChart       = null;
+let tdBData        = null;
+let tdBView        = 'strategy';
+
+// Screener state for dynamic column sorting
+let screenerData   = [];
+let screenerSortKey= null;
+let screenerSortAsc= true;
 
 Chart.defaults.color          = '#768390';
 Chart.defaults.font.family    = '"SF Mono", Consolas, monospace';
@@ -1183,7 +1214,7 @@ function tdBtView(v, el){
   }
 }
 
-// ── Stock Screener Engine ─────────────────────────────────────────────────
+// ── Stock Screener Engine & Dynamic Column Sorting ────────────────────────
 function tdUpdateCache() {
     const token = sessionStorage.getItem("adminToken") || "";
     const btn = document.getElementById("btnUpdateCache");
@@ -1201,6 +1232,64 @@ function tdUpdateCache() {
     .finally(() => { if (btn) { btn.disabled = false; btn.innerText = "Sync Server Data Folder (Incremental)"; } });
 }
 
+// Toggle & load custom ticker list editor drawer
+function tdToggleTickerModal() {
+  const modal = tdEl("td-ticker-modal");
+  if (!modal) return;
+  const isHidden = modal.style.display === "none";
+  modal.style.display = isHidden ? "block" : "none";
+  if (isHidden) {
+    tdLoadTickers();
+  }
+}
+
+async function tdLoadTickers() {
+  const txtArea = tdEl("td-ticker-text");
+  const msg = tdEl("td-ticker-msg");
+  if (msg) msg.innerText = "Loading tickers...";
+  try {
+    const res = await fetch("/api/trading/tickers").then(r => r.json());
+    if (txtArea) txtArea.value = res.content || "";
+    if (msg) msg.innerText = `Loaded ${res.tickers ? res.tickers.length : 0} tickers.`;
+  } catch (err) {
+    if (msg) msg.innerText = "Failed to load ticker list.";
+  }
+}
+
+async function tdSaveTickers() {
+  const txtArea = tdEl("td-ticker-text");
+  const msg = tdEl("td-ticker-msg");
+  const token = sessionStorage.getItem("adminToken") || "";
+  
+  if (msg) msg.innerText = "Saving tickers.txt...";
+  try {
+    const res = await fetch("/api/trading/tickers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Token": token
+      },
+      body: JSON.stringify({ content: txtArea.value })
+    });
+    
+    if (res.status === 401) {
+      alert("Unauthorized! Please login as Admin first.");
+      if (msg) msg.innerText = "Error: Unauthorized.";
+      return;
+    }
+    
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    
+    if (msg) msg.innerText = `Saved! ${data.count} tickers active.`;
+    alert(`tickers.txt saved successfully (${data.count} tickers). Click 'Sync Server Data Folder' to fetch missing datasets.`);
+  } catch (err) {
+    if (msg) msg.innerText = "Error saving tickers.";
+    alert("Failed to save tickers: " + err.message);
+  }
+}
+
+// Execute Screener Query
 async function tdRunScreen() {
   const tableBody = tdEl("screenerResultsTable");
   tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 40px 0; color: var(--td-accent); font-family: var(--td-font-sans);">Analyzing tickers...</td></tr>`;
@@ -1222,44 +1311,120 @@ async function tdRunScreen() {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
     }).then(r => r.json());
 
-    tableBody.innerHTML = "";
-    if (!data.results || data.results.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">No tickers match criteria. Loosen parameters or sync server cache folder.</td></tr>`;
-      return;
-    }
-    data.results.forEach(row => {
-      const tr = document.createElement("tr");
-      tr.className = "td-screen-row";
-      tr.setAttribute("onclick", `tdSelectScreenerTicker('${row.symbol}')`);
-
-      const gmDisp = row.gross_margin === "—" ? "—" : row.gross_margin + "%";
-      const roceDisp = row.roce === "—" ? "—" : row.roce + "%";
-      const fcfDisp = row.fcf === "—" ? "—" : "$" + row.fcf + "B";
-      const divDisp = row.dividend_yield === "—" ? "—" : row.dividend_yield + "%";
-      const mosDisp = row.margin_of_safety === "—" ? "—" : row.margin_of_safety + "%";
-      const insiderDisp = row.insider || "—";
-      const insiderClass = row.insider === "Buying" ? "td-pos" : (row.insider === "Selling" ? "td-neg" : "");
-
-      tr.innerHTML = `
-        <td style="font-weight: bold; color: var(--td-accent);">${row.symbol}</td>
-        <td style="font-family: var(--td-font-sans);">${row.name || '—'}</td>
-        <td style="font-weight: bold; color: var(--td-yellow); text-align: center;">${row.rating}</td>
-        <td>${gmDisp}</td>
-        <td>${roceDisp}</td>
-        <td>${fcfDisp}</td>
-        <td>${row.debt_equity}</td>
-        <td>${row.pegy}</td>
-        <td>${row.pe}</td>
-        <td style="color: var(--td-blue); font-weight: bold;">${divDisp}</td>
-        <td>${mosDisp}</td>
-        <td class="${insiderClass}" style="font-weight: bold;">${insiderDisp}</td>
-      `;
-      tableBody.appendChild(tr);
-    });
+    screenerData = data.results || [];
+    tdRenderScreenerTable();
   } catch (err) {
     tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--td-red); padding: 40px 0; font-family: var(--td-font-sans);">Failed to fetch screen datasets.</td></tr>`;
     console.error(err);
   }
+}
+
+// Dynamic Sorting Helper Functions
+function tdSortScreen(key) {
+  if (screenerSortKey === key) {
+    screenerSortAsc = !screenerSortAsc;
+  } else {
+    screenerSortKey = key;
+    screenerSortAsc = true;
+  }
+  tdRenderScreenerTable();
+}
+
+function parseSortVal(val, key) {
+  if (val === null || val === undefined || val === '—') return null;
+  if (key === 'rating') {
+    const parts = String(val).split('/');
+    return parseFloat(parts[0]) || 0;
+  }
+  const parsed = parseFloat(val);
+  return isNaN(parsed) ? String(val).toLowerCase() : parsed;
+}
+
+function tdRenderScreenerTable() {
+  const tableBody = tdEl("screenerResultsTable");
+  tableBody.innerHTML = "";
+  
+  if (!screenerData || screenerData.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--td-sub); padding: 40px 0; font-family: var(--td-font-sans);">No tickers match criteria. Loosen parameters or sync server cache folder.</td></tr>`;
+    return;
+  }
+
+  // Update header indicators
+  const colKeys = [
+    'symbol', 'name', 'rating', 'gross_margin', 'roce',
+    'fcf', 'debt_equity', 'pegy', 'pe', 'dividend_yield',
+    'margin_of_safety', 'insider'
+  ];
+
+  colKeys.forEach(k => {
+    const el = tdEl(`th-${k}`);
+    if (el) {
+      const baseName = el.getAttribute('data-name') || el.innerText.replace(/[▲▼]/g, '').trim();
+      el.setAttribute('data-name', baseName);
+      if (screenerSortKey === k) {
+        el.innerText = baseName + (screenerSortAsc ? ' ▲' : ' ▼');
+        el.style.color = 'var(--td-accent)';
+      } else {
+        el.innerText = baseName;
+        el.style.color = 'var(--td-sub)';
+      }
+    }
+  });
+
+  // Sort local memory dataset copy
+  let rows = [...screenerData];
+  if (screenerSortKey) {
+    rows.sort((a, b) => {
+      let va = parseSortVal(a[screenerSortKey], screenerSortKey);
+      let vb = parseSortVal(b[screenerSortKey], screenerSortKey);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      if (va < vb) return screenerSortAsc ? -1 : 1;
+      if (va > vb) return screenerSortAsc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.className = "td-screen-row";
+    tr.setAttribute("onclick", `tdSelectScreenerTicker('${row.symbol}')`);
+
+    const gmDisp = row.gross_margin === "—" ? "—" : row.gross_margin + "%";
+    const roceDisp = row.roce === "—" ? "—" : row.roce + "%";
+    const fcfDisp = row.fcf === "—" ? "—" : "$" + row.fcf + "B";
+    const divDisp = row.dividend_yield === "—" ? "—" : row.dividend_yield + "%";
+    let mosDisp = "—";
+    if (row.margin_of_safety !== "—" && row.margin_of_safety != null) {
+      const mosVal = parseFloat(row.margin_of_safety);
+      if (mosVal > 100) {
+        mosDisp = "> 100%";
+      } else if (mosVal < -100) {
+        mosDisp = "< -100%";
+      } else {
+        mosDisp = mosVal + "%";
+      }
+    }
+    const insiderDisp = row.insider || "—";
+    const insiderClass = row.insider === "Buying" ? "td-pos" : (row.insider === "Selling" ? "td-neg" : "");
+
+    tr.innerHTML = `
+      <td style="font-weight: bold; color: var(--td-accent);">${row.symbol}</td>
+      <td style="font-family: var(--td-font-sans);">${row.name || '—'}</td>
+      <td style="font-weight: bold; color: var(--td-yellow); text-align: center;">${row.rating}</td>
+      <td>${gmDisp}</td>
+      <td>${roceDisp}</td>
+      <td>${fcfDisp}</td>
+      <td>${row.debt_equity}</td>
+      <td>${row.pegy}</td>
+      <td>${row.pe}</td>
+      <td style="color: var(--td-blue); font-weight: bold;">${divDisp}</td>
+      <td>${mosDisp}</td>
+      <td class="${insiderClass}" style="font-weight: bold;">${insiderDisp}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
 }
 
 // ── Tab Controller ────────────────────────────────────────────────────────

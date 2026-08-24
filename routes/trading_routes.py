@@ -138,33 +138,64 @@ def get_current_bond_yield():
 
 
 def calculate_margin_of_safety(info, current_yield=None):
-    if current_yield is None:
-        current_yield = get_current_bond_yield()
-
+    """
+    Calculates Intrinsic Value using a 2-Stage Free Cash Flow (FCF) DCF model.
+    This provides a much more accurate valuation than the Graham EPS formula by 
+    accounting for debt, cash, and strict growth caps.
+    """
     current_price = info.get("currentPrice") or info.get("regularMarketPrice")
-    eps = info.get("trailingEps")
-
-    if not current_price or not eps or eps <= 0 or not current_yield:
-        return {"intrinsic_value": None, "margin_of_safety": None}
+    fcf = info.get("freeCashflow")
+    shares = info.get("sharesOutstanding")
+    total_debt = info.get("totalDebt") or 0
+    total_cash = info.get("totalCash") or 0
 
     # Normalize Pence (GBp/GBX) to Pounds (GBP) for UK market tickers
     currency = info.get("currency", "")
     symbol = (info.get("symbol") or "").upper()
     if currency in ["GBp", "GBX"] or symbol.endswith(".L"):
-        current_price = current_price / 100.0
+        if current_price:
+            current_price = current_price / 100.0
 
+    # If we are missing core data or FCF is negative, we cannot confidently value it
+    if not current_price or not fcf or fcf <= 0 or not shares:
+        return {"intrinsic_value": None, "margin_of_safety": None}
+
+    # ── DCF Assumptions ──
+    discount_rate = 0.09      # 9% required rate of return (hurdle rate)
+    terminal_growth = 0.02    # 2% long-term terminal growth rate (inflation avg)
+    
+    # Get expected growth, default to a conservative 5% if missing
     growth_rate = info.get("earningsGrowth")
     if growth_rate is None:
-        growth_rate = 0.05  # conservative default when growth data is missing
-    growth_pct = growth_rate * 100
-    # Clip to a sane range so a single noisy quarter doesn't blow up the formula
-    growth_pct = max(0.0, min(growth_pct, 25.0))
+        growth_rate = 0.05
+        
+    # Strictly cap growth between 0% and 15% to prevent cyclical spikes from breaking the model
+    growth_rate = max(0.0, min(growth_rate, 0.15))
 
-    intrinsic_value = (eps * (8.5 + (2 * growth_pct)) * 4.4) / current_yield
+    # ── Stage 1: Project FCF for 5 Years ──
+    projected_fcf_pv = 0
+    current_fcf = fcf
+    for year in range(1, 6):
+        current_fcf *= (1 + growth_rate)
+        projected_fcf_pv += current_fcf / ((1 + discount_rate) ** year)
+
+    # ── Stage 2: Terminal Value ──
+    # Value of the company from year 6 to infinity
+    terminal_value = (current_fcf * (1 + terminal_growth)) / (discount_rate - terminal_growth)
+    terminal_value_pv = terminal_value / ((1 + discount_rate) ** 5)
+
+    # ── Enterprise Value to Equity Value ──
+    enterprise_value = projected_fcf_pv + terminal_value_pv
+    equity_value = enterprise_value + total_cash - total_debt
+
+    intrinsic_value = equity_value / shares
+
+    # If debt entirely wipes out the enterprise value
     if intrinsic_value <= 0:
         return {"intrinsic_value": None, "margin_of_safety": None}
 
     margin_of_safety = (intrinsic_value - current_price) / intrinsic_value
+    
     return {
         "intrinsic_value": round(intrinsic_value, 2),
         "margin_of_safety": round(margin_of_safety * 100, 2),
@@ -197,6 +228,37 @@ def get_ticker_list():
             f.write(f"{t}\n")
     return default_tickers
 
+# ── ticker file management endpoint ───────────────────────────────────────────
+
+@trading_bp.route("/api/trading/tickers", methods=["GET", "POST"])
+def manage_tickers():
+    """Endpoint to view or update the tickers.txt file used by the screener and sync engine."""
+    if request.method == "GET":
+        content = ""
+        if os.path.exists(TICKERS_FILE):
+            with open(TICKERS_FILE, "r") as f:
+                content = f.read()
+        return jsonify({"content": content, "tickers": get_ticker_list()})
+
+    # Admin verification for write operations
+    token = request.headers.get("X-Admin-Token")
+    if token != ADMIN_SECRET_TOKEN:
+        return jsonify({"error": "Unauthorized admin action"}), 401
+
+    data = request.get_json() or {}
+    content = data.get("content", "")
+
+    try:
+        with open(TICKERS_FILE, "w") as f:
+            f.write(content)
+        updated_tickers = get_ticker_list()
+        return jsonify({
+            "message": f"Successfully updated {TICKERS_FILE}",
+            "count": len(updated_tickers),
+            "tickers": updated_tickers
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def update_ticker_data(symbol):
     """Updates stock data folder cache incrementally, adding only missing days."""
