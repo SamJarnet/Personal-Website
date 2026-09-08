@@ -550,11 +550,12 @@
     <span id="td-status">Enter ticker symbol and press Load</span>
   </div>
 
-  <div id="td-tabs">
-    <button id="td-tab-btn-screener" class="td-tab active" onclick="tdTab('screener',this)">Stock Screener</button>
-    <button id="td-tab-btn-market"   class="td-tab"        onclick="tdTab('market',this)">Market Data</button>
-    <button id="td-tab-btn-backtest" class="td-tab"        onclick="tdTab('backtest',this)">Backtest Engine</button>
-  </div>
+<div id="td-tabs">
+  <button id="td-tab-btn-screener" class="td-tab active" onclick="tdTab('screener',this)">Stock Screener</button>
+  <button id="td-tab-btn-market"   class="td-tab"        onclick="tdTab('market',this)">Market Data</button>
+  <button id="td-tab-btn-activity" class="td-tab"        onclick="tdTab('activity',this)">Interesting Activity</button>
+  <button id="td-tab-btn-backtest" class="td-tab"        onclick="tdTab('backtest',this)">Backtest Engine</button>
+</div>
 
   <!-- SCREENER PANEL (DEFAULT ACTIVE) -->
   <div id="td-screener" class="td-panel active">
@@ -788,7 +789,45 @@
       </div>
     </div>
   </div>
+<!-- INTERESTING ACTIVITY PANEL -->
+<div id="td-activity" class="td-panel">
+  <div class="td-main" style="padding: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div>
+        <h2 style="font-size: 14px; color: var(--td-accent); margin: 0; text-transform: uppercase; font-weight: 700;">
+          Significant Insider Activity Radar
+        </h2>
+        <span style="color: var(--td-sub); font-size: 11px;">
+          Automatically flagged during nightly dataset synchronization
+        </span>
+      </div>
+      <button class="td-pill active" onclick="tdLoadInterestingActivity()">🔄 Refresh Feed</button>
+    </div>
 
+    <div class="td-table-wrap" style="height: calc(100vh - 180px);">
+      <table class="td-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Ticker</th>
+            <th>Company Name</th>
+            <th>Insider / Role</th>
+            <th>Type</th>
+            <th style="text-align: right;">Shares</th>
+            <th style="text-align: center;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="td-activity-table-body">
+          <tr>
+            <td colspan="7" style="text-align: center; color: var(--td-sub); padding: 40px 0;">
+              Loading activity feed...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 </div>
 
 <script>
@@ -977,6 +1016,7 @@ async function tdFetchInsider(sym) {
     const newsFeed = tdEl('td-news-feed');
     newsFeed.innerHTML = '';
     
+    // Top-level signal (if available)
     if (data.signal && data.signal !== '—') {
       const sigDiv = document.createElement('div');
       sigDiv.className = 'td-news-item';
@@ -986,21 +1026,55 @@ async function tdFetchInsider(sym) {
     }
 
     if (data.transactions && data.transactions.length > 0) {
-      data.transactions.slice(0, 5).forEach(tx => {
+      data.transactions.forEach(tx => {
         const item = document.createElement('div');
         item.className = 'td-news-item';
         
         const reporter = tx.filerName || tx.insider || tx.Insider || tx.name || 'Insider';
         const relation = tx.position || tx.title || tx.Position || tx.relation || '';
-        const rawShares = tx.shares ?? tx.Shares ?? tx.sharesTransacted ?? tx.amount;
-        const shares = (rawShares !== undefined && rawShares !== null) ? Number(rawShares).toLocaleString() : '—';
-        const date = tx.startDate || tx.date || tx.Date || tx.start_date || tx.Start_Date || '';
+        const rawShares = tx.shares ?? tx.Shares ?? tx.sharesTransacted ?? tx.amount ?? 0;
+        
+        // ── EXTRACT & FORMAT DATE ──
+        // aggressively check for all possible date keys (including those with spaces)
+        const dateRaw = tx['Start Date'] || tx['Date'] || tx.startDate || tx.date || tx.start_date || tx.Start_Date || tx['Trade Date'] || '';
+        // Clean up timestamps to just show YYYY-MM-DD
+        const dateStr = dateRaw ? String(dateRaw).split('T')[0].split(' ')[0] : 'Unknown Date';
+
+        // ── DETERMINE BUY OR SELL ──
+        let actionText = "TRADE";
+        let actionColor = "var(--td-sub)";
+
+        const txText = (tx.text || tx.Text || tx.transactionText || tx.Transaction || "").toLowerCase();
+        const acqDisp = (tx.acquisitionOrDisposition || "").toUpperCase();
+
+        if (txText.includes("buy") || txText.includes("purchase") || acqDisp === "A" || Number(rawShares) > 0) {
+            actionText = "BUY";
+            actionColor = "var(--td-green)";
+        }
+        if (txText.includes("sell") || txText.includes("sale") || acqDisp === "D" || Number(rawShares) < 0) {
+            actionText = "SELL";
+            actionColor = "var(--td-red)";
+        }
+        if (txText.includes("grant") || txText.includes("award") || txText.includes("option")) {
+            actionText = "GRANT";
+            actionColor = "var(--td-blue)";
+        }
+
+        const absShares = Math.abs(Number(rawShares)).toLocaleString();
 
         item.innerHTML = `
-          <a href="#" class="td-news-headline" onclick="return false;">
-            ${reporter} ${relation ? '(' + relation + ')' : ''}
-          </a>
-          <span class="td-news-meta">${shares} shares ${date ? '• ' + date : ''}</span>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;">
+              <a href="#" class="td-news-headline" onclick="return false;" style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px;">
+                ${reporter} ${relation ? '<span style="color:var(--td-sub); font-weight:normal;">(' + relation + ')</span>' : ''}
+              </a>
+              <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                <span style="color: var(--td-sub); font-family: var(--td-font-mono); font-size: 10px;">${dateStr}</span>
+                <span style="font-family: var(--td-font-mono); font-size: 9px; font-weight: 700; color: ${actionColor}; border: 1px solid ${actionColor}; padding: 1px 4px; border-radius: 2px;">
+                    ${actionText}
+                </span>
+              </div>
+          </div>
+          <span class="td-news-meta">${absShares} shares</span>
         `;
         newsFeed.appendChild(item);
       });
@@ -1498,5 +1572,57 @@ function logoutAdmin() {
 }
 
 document.addEventListener("DOMContentLoaded", checkAdminStatus);
+
+async function tdLoadInterestingActivity() {
+  const tbody = tdEl('td-activity-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--td-accent); padding: 40px 0;">Fetching flagged activity...</td></tr>`;
+
+  try {
+    const res = await fetch('/api/trading/interesting_activity').then(r => r.json());
+    const items = res.activity || [];
+
+    if (items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--td-sub); padding: 40px 0;">No significant insider buys detected yet. Run a dataset sync to populate.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    items.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.className = 'td-screen-row';
+      tr.innerHTML = `
+        <td style="color: var(--td-sub); font-family: var(--td-font-mono);">${item.date || '—'}</td>
+        <td style="font-weight: bold; color: var(--td-accent);">${item.symbol}</td>
+        <td style="font-family: var(--td-font-sans);">${item.name || '—'}</td>
+        <td>${item.insider} <span style="color: var(--td-sub);">(${item.relation})</span></td>
+        <td>
+          <span style="font-family: var(--td-font-mono); font-size: 9px; font-weight: 700; color: var(--td-green); border: 1px solid var(--td-green); padding: 1px 4px; border-radius: 2px;">
+            LARGE BUY
+          </span>
+        </td>
+        <td style="text-align: right; font-weight: bold; color: var(--td-green); font-family: var(--td-font-mono);">
+          +${Number(item.shares).toLocaleString()}
+        </td>
+        <td style="text-align: center;">
+          <button class="td-pill" onclick="tdSelectScreenerTicker('${item.symbol}')">Inspect ➔</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--td-red); padding: 40px 0;">Failed to load activity log.</td></tr>`;
+  }
+}
+
+// Automatically load activity when clicking the tab
+const origTdTab = window.tdTab;
+window.tdTab = function(name, el) {
+  if (typeof origTdTab === 'function') origTdTab(name, el);
+  if (name === 'activity') {
+    tdLoadInterestingActivity();
+  }
+};
 </script>
 {% endblock %}

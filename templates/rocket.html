@@ -1,15 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}Rocket Landing Simulation{% endblock %}
+{% block title %}Rocket Landing Simulation (2D & 3D){% endblock %}
 
 {% block extra_head %}
+<!-- Include Three.js CDN for 3D WebGL Tab -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 <style>
     .canvas-container { 
         display: flex; 
         justify-content: center; 
     }
     
-    canvas { 
+    #canvas3d { 
+        width: 100%;
+        height: 600px;
+        background-color: #0d1117; 
+        border: 1px solid #30363d; 
+        border-radius: 16px; 
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    #rocketCanvas { 
         background-color: #0d1117; 
         border: 1px solid #30363d; 
         border-radius: 16px; 
@@ -36,6 +48,18 @@
         animation: blinker 1s linear infinite;
     }
 
+    .nav-tabs .nav-link {
+        color: #8b949e;
+        border-color: #30363d;
+        font-weight: 600;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #58a6ff;
+        background-color: #161b22;
+        border-color: #30363d #30363d #161b22;
+    }
+
     @keyframes blinker {
         50% { opacity: 0; }
     }
@@ -45,76 +69,126 @@
 {% block content %}
 <div class="content-wrapper">
     <div class="container-fluid px-4">
-        <div class="text-center mb-4">
-            <h1 class="section-title">Rocket Landing Simulation (WIP)</h1>
+        <div class="text-center mb-3">
+            <h1 class="section-title">Rocket Landing Simulation</h1>
         </div>
 
-        <div class="row align-items-start g-4">
-            <div class="col-xl-8 col-lg-7 canvas-container">
-                <canvas id="rocketCanvas" width="500" height="800"></canvas>
-            </div>
-            
-            <div class="col-xl-4 col-lg-5">
-                <!-- Telemetry & Systems Box -->
-                <div id="controlBox" class="section-box p-4 bg-dark rounded border border-secondary">
-                    <h3 class="mb-3 fs-5 text-light">Telemetry & Systems</h3>
-                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
-                    
-                    <div class="mb-2">
-                        <div class="telemetry-row">
-                            <span>Control Status:</span>
-                            <span id="actionVal" class="value-counter">HUMAN MANUAL PILOT</span>
-                        </div>
-                    </div>
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs justify-content-center mb-4" id="simTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active px-4 py-2" id="tab-3d-btn" data-bs-toggle="tab" data-bs-target="#tab-3d" type="button" role="tab">
+                    🚀 3D Simulation (PPO AI)
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-2" id="tab-2d-btn" data-bs-toggle="tab" data-bs-target="#tab-2d" type="button" role="tab">
+                    📐 2D Simulation (DQN AI)
+                </button>
+            </li>
+        </ul>
 
-                    <div class="mb-2">
-                        <div class="telemetry-row">
-                            <span>Altitude (Y):</span>
-                            <span id="altVal" class="value-counter">0.00</span>
-                        </div>
+        <div class="tab-content" id="simTabsContent">
+            <!-- ==================== 3D TAB CONTENT ==================== -->
+            <div class="tab-pane fade show active" id="tab-3d" role="tabpanel">
+                <div class="row align-items-start g-4">
+                    <div class="col-xl-8 col-lg-7 canvas-container">
+                        <div id="canvas3d"></div>
                     </div>
                     
-                    <div class="mb-2">
-                        <div class="telemetry-row">
-                            <span>Velocity (Vy):</span>
-                            <span id="velYVal" class="value-counter">0.00</span>
-                        </div>
-                    </div>
+                    <div class="col-xl-4 col-lg-5">
+                        <div class="section-box p-4 bg-dark rounded border border-secondary">
+                            <h3 class="mb-3 fs-5 text-light">3D Telemetry & Systems</h3>
+                            <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
+                            
+                            <div class="mb-2">
+                                <div class="telemetry-row">
+                                    <span>Control Status:</span>
+                                    <span id="actionVal3d" class="value-counter">HUMAN MANUAL PILOT</span>
+                                </div>
+                            </div>
 
-                    <div class="mb-4">
-                        <div class="telemetry-row">
-                            <span>System Alerts:</span>
-                            <span id="systemStatus" style="color: #2ea043;">NOMINAL</span>
-                        </div>
-                    </div>
+                            <div class="mb-2">
+                                <div class="telemetry-row">
+                                    <span>Position (X, Y, Z):</span>
+                                    <span id="posVal3d" class="value-counter">0.0, 0.0, 0.0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <div class="telemetry-row">
+                                    <span>Velocity (Vy):</span>
+                                    <span id="velYVal3d" class="value-counter">0.00</span>
+                                </div>
+                            </div>
 
-                    <div class="d-flex gap-2 flex-column">
-                        <div class="text-muted small text-center mb-1">Controls: W (Thrust) | A / D (Rotate)</div>
-                        
-                        <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Hold Thrust (W)</button>
-                        <button class="btn btn-info w-100 text-uppercase fw-bold" id="tradBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage Traditional Guidance</button>
-                        <button class="btn btn-success w-100 text-uppercase fw-bold" id="aiBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Engage PyTorch AI</button>
-                        <hr style="border-color: #30363d; margin: 8px 0;">
-                        <button class="btn btn-primary w-100 text-uppercase" id="resetBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Reset Simulation</button>
+                            <div class="mb-4">
+                                <div class="telemetry-row">
+                                    <span>System Alerts:</span>
+                                    <span id="systemStatus3d" style="color: #2ea043;">NOMINAL</span>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 flex-column">
+                                <div class="text-muted small text-center mb-1">Controls: W (Thrust) | Arrow Keys (Pitch/Roll)</div>
+                                <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn3d">Hold Thrust (W)</button>
+                                <button class="btn btn-success w-100 text-uppercase fw-bold" id="aiBtn3d">Engage 3D PPO AI</button>
+                                <hr style="border-color: #30363d; margin: 8px 0;">
+                                <button class="btn btn-primary w-100 text-uppercase" id="resetBtn3d">Reset 3D Sim</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- How It Works & Credits Text Box -->
-                <div class="section-box p-4 bg-dark rounded border border-secondary mt-4" style="max-height: 300px; overflow-y: auto;">
-                    <h3 class="mb-3 fs-5 text-light">How It Works & Credits</h3>
-                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 16px;">
+            <!-- ==================== 2D TAB CONTENT ==================== -->
+            <div class="tab-pane fade" id="tab-2d" role="tabpanel">
+                <div class="row align-items-start g-4">
+                    <div class="col-xl-8 col-lg-7 canvas-container">
+                        <canvas id="rocketCanvas" width="500" height="700"></canvas>
+                    </div>
                     
-                    <div class="text-muted small">
-                        <p class="mb-2 text-light">
-                            <strong>Project Help</strong><br>
-                            Switch to PyTorch AI mode for the pretrained landing setting. The traditional guidance uses a simple PID controller.
-                        </p>
-                        
-                        <p class="mb-0 border-top border-secondary pt-2 text-light">
-                            <strong>Source:</strong><br>
-                            I used the tutorial on the official PyTorch website to create my Deep Q Learning Agent to complete a safe landing at the landing pad. The code is largely similar and was very helpful to learn the basics of PyTorch.
-                            <a href="https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html" target="_blank" class="text-info text-decoration-underline">Official PyTorch Reinforcement Learning (DQN) Tutorial</a>.
-                        </p>
+                    <div class="col-xl-4 col-lg-5">
+                        <div class="section-box p-4 bg-dark rounded border border-secondary">
+                            <h3 class="mb-3 fs-5 text-light">2D Telemetry & Systems</h3>
+                            <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
+                            
+                            <div class="mb-2">
+                                <div class="telemetry-row">
+                                    <span>Control Status:</span>
+                                    <span id="actionVal2d" class="value-counter">HUMAN MANUAL PILOT</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <div class="telemetry-row">
+                                    <span>Altitude (Y):</span>
+                                    <span id="altVal2d" class="value-counter">0.00</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <div class="telemetry-row">
+                                    <span>Velocity (Vy):</span>
+                                    <span id="velYVal2d" class="value-counter">0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="telemetry-row">
+                                    <span>System Alerts:</span>
+                                    <span id="systemStatus2d" style="color: #2ea043;">NOMINAL</span>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 flex-column">
+                                <div class="text-muted small text-center mb-1">Controls: W (Thrust) | A / D (Rotate)</div>
+                                <button class="btn btn-outline-warning w-100 text-uppercase" id="thrustBtn2d">Hold Thrust (W)</button>
+                                <button class="btn btn-info w-100 text-uppercase fw-bold" id="tradBtn2d">Engage Traditional Autopilot</button>
+                                <button class="btn btn-success w-100 text-uppercase fw-bold" id="aiBtn2d">Engage 2D DQN AI</button>
+                                <hr style="border-color: #30363d; margin: 8px 0;">
+                                <button class="btn btn-primary w-100 text-uppercase" id="resetBtn2d">Reset 2D Sim</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -123,21 +197,74 @@
 </div>
 
 <script>
-    const canvas = document.getElementById("rocketCanvas");
-    const ctx = canvas.getContext("2d");
-    
-    const MAP_SIZE_X = 10.0; 
-    const MAP_SIZE_Y = 20.0; 
-
-    let currentMode = "manual"; 
-    let keys = { w: false, a: false, d: false };
-    
-    // Lock variables to prevent out-of-order HTTP requests over latency-heavy connections
+    let activeDim = "3d"; // Default active tab
     let isFetching = false;
     let lastFrameTime = 0;
-    const FRAME_INTERVAL = 33; // Target ~30 FPS
+    const FRAME_INTERVAL = 33; // ~30 FPS
 
-    function getManualAction() {
+    // Global Key States
+    let keys = { w: false, a: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+    let mode3d = "manual";
+    let mode2d = "manual";
+
+    // --- THREE.JS 3D SCENE SETUP ---
+    const container3d = document.getElementById("canvas3d");
+    const scene3d = new THREE.Scene();
+    scene3d.background = new THREE.Color(0x0d1117);
+
+    const camera3d = new THREE.PerspectiveCamera(45, container3d.clientWidth / container3d.clientHeight, 0.1, 1000);
+    camera3d.position.set(6.0, 8.0, 22.0);
+    camera3d.lookAt(6.0, 6.0, 0.0);
+
+    const renderer3d = new THREE.WebGLRenderer({ antialias: true });
+    renderer3d.setSize(container3d.clientWidth, container3d.clientHeight);
+    container3d.appendChild(renderer3d.domElement);
+
+    scene3d.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    scene3d.add(dirLight);
+
+    const gridHelper = new THREE.GridHelper(40, 40, 0x58a6ff, 0x30363d);
+    gridHelper.position.y = 1.0;
+    scene3d.add(gridHelper);
+
+    // 3D Pad
+    const padGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.1, 32);
+    const padMat = new THREE.MeshStandardMaterial({ color: 0xda3633, metalness: 0.5, roughness: 0.3 });
+    const padMesh3d = new THREE.Mesh(padGeo, padMat);
+    padMesh3d.position.set(6.0, 1.0, 0.0);
+    scene3d.add(padMesh3d);
+
+    // 3D Rocket
+    const rocketGroup3d = new THREE.Group();
+    const bodyMesh3d = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.8, 16), new THREE.MeshStandardMaterial({ color: 0xc9d1d9 }));
+    const noseMesh3d = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.6, 16), new THREE.MeshStandardMaterial({ color: 0x3b8ad4 }));
+    noseMesh3d.position.y = 1.2;
+    const flameMesh3d = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 16), new THREE.MeshBasicMaterial({ color: 0xff5500 }));
+    flameMesh3d.position.y = -1.3;
+    flameMesh3d.rotation.x = Math.PI;
+    flameMesh3d.visible = false;
+    
+    rocketGroup3d.add(bodyMesh3d);
+    rocketGroup3d.add(noseMesh3d);
+    rocketGroup3d.add(flameMesh3d);
+    scene3d.add(rocketGroup3d);
+
+    // --- 2D CANVAS SETUP ---
+    const canvas2d = document.getElementById("rocketCanvas");
+    const ctx2d = canvas2d.getContext("2d");
+    const MAP_SIZE_X = 10.0, MAP_SIZE_Y = 20.0;
+
+    // --- INPUT GETTERS ---
+    function get3dAction() {
+        let thrust = keys.w ? 1.0 : 0.0;
+        let rotX = keys.ArrowUp ? -1.0 : (keys.ArrowDown ? 1.0 : 0.0);
+        let rotZ = keys.ArrowLeft ? 1.0 : (keys.ArrowRight ? -1.0 : 0.0);
+        return [thrust, rotX, rotZ];
+    }
+
+    function get2dAction() {
         if (keys.w && keys.a) return 4;
         if (keys.w && keys.d) return 5;
         if (keys.w) return 1;
@@ -146,160 +273,153 @@
         return 0;
     }
 
-    async function stepSimulation(isReset = false) {
-        // Skip request if previous fetch is still in flight to avoid network pileups
+    // --- SIMULATION STEP ---
+    async function stepSim(isReset = false) {
         if (isFetching && !isReset) return;
         isFetching = true;
 
         const payload = {
+            dim: activeDim,
             reset: isReset,
-            mode: currentMode,
-            action: getManualAction()
+            mode: activeDim === "3d" ? mode3d : mode2d,
+            action: activeDim === "3d" ? get3dAction() : get2dAction()
         };
 
         try {
-            const response = await fetch("/api/rocket/simulate", {
+            const res = await fetch("/api/rocket/simulate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            const data = await response.json();
-            
+            const data = await res.json();
             if (data.status === "success") {
-                renderFrame(data.frame);
-            } else {
-                console.error("Backend Physics Engine Error:", data.error);
+                if (data.frame.dim === "3d") render3d(data.frame);
+                else render2d(data.frame);
             }
-        } catch (err) {
-            console.error("Network communication failure:", err);
+        } catch (e) {
+            console.error("Simulation error:", e);
         } finally {
             isFetching = false;
         }
     }
 
-    function drawRocket(x, y, angle, thrusting) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(-angle);
+    // --- RENDER 3D ---
+    function render3d(f) {
+        rocketGroup3d.position.set(f.pos[0], f.pos[1], f.pos[2]);
+        rocketGroup3d.rotation.set(-f.angle[0], -f.angle[1], -f.angle[2]);
+        flameMesh3d.visible = f.thrusting;
+
+        document.getElementById("posVal3d").innerText = `${f.pos[0].toFixed(1)}, ${f.pos[1].toFixed(1)}, ${f.pos[2].toFixed(1)}`;
+        document.getElementById("velYVal3d").innerText = f.vel[1].toFixed(2);
+        document.getElementById("actionVal3d").innerText = f.action_name;
         
-        // Rocket Hull
-        ctx.fillStyle = "#c9d1d9";
-        ctx.beginPath();
-        ctx.moveTo(0, -18);
-        ctx.lineTo(-10, 14);
-        ctx.lineTo(0, 9);
-        ctx.lineTo(10, 14);
-        ctx.closePath();
-        ctx.fill();
+        const statusEl = document.getElementById("systemStatus3d");
+        statusEl.innerText = f.crashed ? "CRITICAL BOOM" : (f.landed ? "TOUCHDOWN SUCCESSFUL" : "NOMINAL FLIGHT");
+        statusEl.style.color = f.crashed ? "#da3633" : "#2ea043";
 
-        // Thruster Flame
-        if (thrusting) {
-            ctx.fillStyle = "#ff5500";
-            ctx.beginPath();
-            ctx.moveTo(-4, 9);
-            ctx.lineTo(0, 26);
-            ctx.lineTo(4, 9);
-            ctx.closePath();
-            ctx.fill();
-        }
-        ctx.restore();
+        renderer3d.render(scene3d, camera3d);
     }
 
-    function drawEnvironment(frame) {
-        const groundY = (1.0 - 1.0 / MAP_SIZE_Y) * canvas.height;
-        ctx.strokeStyle = "#58a6ff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, groundY);
-        ctx.lineTo(canvas.width, groundY);
-        ctx.stroke();
+    // --- RENDER 2D ---
+    function render2d(f) {
+        ctx2d.fillStyle = "#0d1117";
+        ctx2d.fillRect(0, 0, canvas2d.width, canvas2d.height);
 
-        if (frame && frame.landing_pad) {
-            const padX = (frame.landing_pad[0] / MAP_SIZE_X) * canvas.width;
-            const padY = (1.0 - frame.landing_pad[1] / MAP_SIZE_Y) * canvas.height;
-            ctx.fillStyle = "#da3633";
-            ctx.beginPath();
-            ctx.arc(padX, padY, 10, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-    }
+        // Ground & Pad
+        const groundY = (1.0 - 1.0 / MAP_SIZE_Y) * canvas2d.height;
+        ctx2d.strokeStyle = "#58a6ff";
+        ctx2d.lineWidth = 2;
+        ctx2d.beginPath();
+        ctx2d.moveTo(0, groundY);
+        ctx2d.lineTo(canvas2d.width, groundY);
+        ctx2d.stroke();
 
-    function renderFrame(frame) {
-        ctx.fillStyle = "#0d1117";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        drawEnvironment(frame);
-
-        const webX = (frame.x / MAP_SIZE_X) * canvas.width;
-        const webY = (1.0 - frame.y / MAP_SIZE_Y) * canvas.height;
-
-        document.getElementById("altVal").innerText = frame.y.toFixed(2);
-        document.getElementById("velYVal").innerText = frame.vy.toFixed(3);
-        document.getElementById("actionVal").innerText = frame.action_name;
-
-        const statusEl = document.getElementById("systemStatus");
-        if (frame.crashed) {
-            statusEl.className = "status-alert";
-            statusEl.style.color = "#da3633";
-            statusEl.innerText = "CRITICAL BOOM";
-        } else if (frame.landed) {
-            statusEl.className = "";
-            statusEl.style.color = "#2ea043";
-            statusEl.innerText = "TOUCHDOWN SUCCESSFUL";
-        } else {
-            statusEl.className = "";
-            statusEl.style.color = "#2ea043";
-            statusEl.innerText = "NOMINAL FLIGHT";
+        if (f.landing_pad) {
+            const padX = (f.landing_pad[0] / MAP_SIZE_X) * canvas2d.width;
+            ctx2d.fillStyle = "#da3633";
+            ctx2d.beginPath();
+            ctx2d.arc(padX, groundY, 10, 0, 2 * Math.PI);
+            ctx2d.fill();
         }
 
-        drawRocket(webX, webY, frame.angle, frame.thrusting);
+        // Rocket
+        const webX = (f.x / MAP_SIZE_X) * canvas2d.width;
+        const webY = (1.0 - f.y / MAP_SIZE_Y) * canvas2d.height;
+
+        ctx2d.save();
+        ctx2d.translate(webX, webY);
+        ctx2d.rotate(-f.angle);
+        ctx2d.fillStyle = "#c9d1d9";
+        ctx2d.beginPath();
+        ctx2d.moveTo(0, -18);
+        ctx2d.lineTo(-10, 14);
+        ctx2d.lineTo(0, 9);
+        ctx2d.lineTo(10, 14);
+        ctx2d.closePath();
+        ctx2d.fill();
+
+        if (f.thrusting) {
+            ctx2d.fillStyle = "#ff5500";
+            ctx2d.beginPath();
+            ctx2d.moveTo(-4, 9);
+            ctx2d.lineTo(0, 26);
+            ctx2d.lineTo(4, 9);
+            ctx2d.closePath();
+            ctx2d.fill();
+        }
+        ctx2d.restore();
+
+        document.getElementById("altVal2d").innerText = f.y.toFixed(2);
+        document.getElementById("velYVal2d").innerText = f.vy.toFixed(3);
+        document.getElementById("actionVal2d").innerText = f.action_name;
+
+        const statusEl = document.getElementById("systemStatus2d");
+        statusEl.innerText = f.crashed ? "CRITICAL BOOM" : (f.landed ? "TOUCHDOWN SUCCESSFUL" : "NOMINAL FLIGHT");
+        statusEl.style.color = f.crashed ? "#da3633" : "#2ea043";
     }
 
-    // Controlled game loop replacing setInterval
+    // Loop
     function gameLoop(timestamp) {
         if (timestamp - lastFrameTime >= FRAME_INTERVAL) {
-            stepSimulation(false);
+            stepSim(false);
             lastFrameTime = timestamp;
         }
         requestAnimationFrame(gameLoop);
     }
 
+    // Listeners
+    document.getElementById("tab-3d-btn").addEventListener("click", () => { activeDim = "3d"; stepSim(true); });
+    document.getElementById("tab-2d-btn").addEventListener("click", () => { activeDim = "2d"; stepSim(true); });
+
     window.addEventListener("keydown", (e) => {
-        const key = e.key.toLowerCase();
-        if (key === 'w' || key === 'a' || key === 'd') {
-            keys[key] = true;
-            currentMode = "manual";
+        if (e.key in keys || e.key === 'w' || e.key === 'W') {
+            keys[e.key] = true;
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (activeDim === "3d") mode3d = "manual";
+            else mode2d = "manual";
         }
     });
 
     window.addEventListener("keyup", (e) => {
-        const key = e.key.toLowerCase();
-        if (key in keys) keys[key] = false;
+        if (e.key in keys) keys[e.key] = false;
+        if (e.key === 'w' || e.key === 'W') keys.w = false;
     });
 
-    document.getElementById("thrustBtn").addEventListener("mousedown", () => {
-        keys.w = true;
-        currentMode = "manual";
-    });
-    document.getElementById("thrustBtn").addEventListener("mouseup", () => keys.w = false);
-    document.getElementById("thrustBtn").addEventListener("mouseleave", () => keys.w = false);
+    // Button Binds 3D
+    document.getElementById("thrustBtn3d").addEventListener("mousedown", () => { keys.w = true; mode3d = "manual"; });
+    document.getElementById("thrustBtn3d").addEventListener("mouseup", () => keys.w = false);
+    document.getElementById("aiBtn3d").addEventListener("click", () => { mode3d = "ai"; });
+    document.getElementById("resetBtn3d").addEventListener("click", () => { mode3d = "manual"; stepSim(true); });
 
-    document.getElementById("tradBtn").addEventListener("click", () => {
-        currentMode = "traditional";
-    });
-
-    document.getElementById("aiBtn").addEventListener("click", () => {
-        currentMode = "ai";
-    });
-
-    document.getElementById("resetBtn").addEventListener("click", () => {
-        keys = { w: false, a: false, d: false };
-        currentMode = "manual";
-        stepSimulation(true);
-    });
+    // Button Binds 2D
+    document.getElementById("thrustBtn2d").addEventListener("mousedown", () => { keys.w = true; mode2d = "manual"; });
+    document.getElementById("thrustBtn2d").addEventListener("mouseup", () => keys.w = false);
+    document.getElementById("tradBtn2d").addEventListener("click", () => { mode2d = "traditional"; });
+    document.getElementById("aiBtn2d").addEventListener("click", () => { mode2d = "ai"; });
+    document.getElementById("resetBtn2d").addEventListener("click", () => { mode2d = "manual"; stepSim(true); });
 
     window.onload = async () => {
-        await stepSimulation(true);
+        await stepSim(true);
         requestAnimationFrame(gameLoop);
     };
 </script>

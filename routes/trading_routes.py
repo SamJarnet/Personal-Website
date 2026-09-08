@@ -519,7 +519,7 @@ sync_status = {
 }
 
 def run_sync_in_background():
-    """Background worker function executing the ticker data download sequence."""
+    """Background worker function executing ticker data downloads, orphan cleanup, and insider activity detection."""
     global sync_status
     sync_status["running"] = True
     sync_status["errors"] = []
@@ -532,6 +532,23 @@ def run_sync_in_background():
         
         os.makedirs(DATA_DIR, exist_ok=True)
         
+        # ── 1. Cleanup Orphaned Data Files ──
+        sync_status["message"] = "Cleaning up old data..."
+        active_symbols = set(tickers)
+        for filename in os.listdir(DATA_DIR):
+            # Explicitly protect system log and configuration files from deletion
+            if filename in ("interesting_activity.json", "tickers.txt"):
+                continue
+                
+            if filename.endswith(('.json', '.csv')):
+                file_symbol = filename.split('_')[0]
+                if file_symbol not in active_symbols:
+                    try:
+                        os.remove(os.path.join(DATA_DIR, filename))
+                    except Exception as e:
+                        print(f"Could not delete orphan file {filename}: {e}")
+
+        # ── 2. Download and Cache Ticker Data ──
         for index, symbol in enumerate(tickers, 1):
             sync_status["current_ticker"] = symbol
             sync_status["progress"] = index
@@ -540,32 +557,72 @@ def run_sync_in_background():
             try:
                 t = yf.Ticker(symbol)
                 
-                # 1. Fetch & cache Info metadata
+                # Fetch & cache Info metadata
                 info = t.info or {}
                 with open(os.path.join(DATA_DIR, f"{symbol}_info.json"), "w") as f:
                     json.dump(info, f, indent=2)
                     
-                # 2. Fetch & cache Financials CSV
+                # Fetch & cache Financials CSV
                 fin_df = t.financials
                 if fin_df is not None and not fin_df.empty:
                     fin_df.to_csv(os.path.join(DATA_DIR, f"{symbol}_financials.csv"))
                     
-                # 3. Fetch & cache Balance Sheet CSV
+                # Fetch & cache Balance Sheet CSV
                 bs_df = t.balance_sheet
                 if bs_df is not None and not bs_df.empty:
                     bs_df.to_csv(os.path.join(DATA_DIR, f"{symbol}_balance_sheet.csv"))
                     
-                # 4. Fetch & cache Insider Transactions CSV
-                insider_df = t.insider_transactions
-                if insider_df is not None and not insider_df.empty:
-                    insider_df.to_csv(os.path.join(DATA_DIR, f"{symbol}_insider.csv"))
+                # Fetch & cache Insider Transactions JSON
+                insider_data = {
+                    "transactions": df_to_records(t.get_insider_transactions()),
+                    "roster":       df_to_records(t.get_insider_roster_holders()),
+                    "purchases":    df_to_records(t.get_insider_purchases()),
+                }
+                with open(os.path.join(DATA_DIR, f"{symbol}_insider.json"), "w") as f:
+                    json.dump(insider_data, f, indent=2)
+
+                # Fetch & cache Historical Price Data (Incremental Update)
+                history_file = os.path.join(DATA_DIR, f"{symbol}_history.csv")
+                if os.path.exists(history_file):
+                    try:
+                        existing_df = pd.read_csv(history_file, index_col=0)
+                        if not existing_df.empty:
+                            existing_df.index = pd.to_datetime(existing_df.index, utc=True).tz_localize(None)
+                            last_date = existing_df.index.max()
+                            new_df = t.history(start=last_date.strftime("%Y-%m-%d"))
+                            if not new_df.empty:
+                                new_df.index = pd.to_datetime(new_df.index, utc=True).tz_localize(None)
+                                combined_df = pd.concat([existing_df, new_df])
+                                combined_df = combined_df[~combined_df.index.duplicated(keep='last')]
+                                combined_df.to_csv(history_file)
+                        else:
+                            df_fresh = t.history(period="5y")
+                            df_fresh.index = pd.to_datetime(df_fresh.index, utc=True).tz_localize(None)
+                            df_fresh.to_csv(history_file)
+                    except Exception:
+                        df_fresh = t.history(period="5y")
+                        df_fresh.index = pd.to_datetime(df_fresh.index, utc=True).tz_localize(None)
+                        df_fresh.to_csv(history_file)
+                else:
+                    df_fresh = t.history(period="5y")
+                    df_fresh.index = pd.to_datetime(df_fresh.index, utc=True).tz_localize(None)
+                    df_fresh.to_csv(history_file)
+
+                # ── 3. Scan for Significant Insider Activity ──
+                company_name = info.get("longName") or info.get("shortName") or symbol
+                process_interesting_activity(
+                    symbol=symbol,
+                    company_name=company_name,
+                    insider_records=insider_data.get("transactions", []),
+                    min_shares_threshold=5000  # Minimum share threshold trigger
+                )
 
             except Exception as e:
                 err_msg = f"Failed {symbol}: {str(e)}"
                 print(err_msg)
                 sync_status["errors"].append(err_msg)
             
-            # Rate-limiting delay: Prevents Pi CPU overheating & Yahoo Finance IP blocks
+            # Rate-limiting delay: Prevents CPU overheating & API rate-limiting
             time.sleep(1.0)
             
         sync_status["message"] = f"Completed sync of {len(tickers)} tickers!"
@@ -835,3 +892,98 @@ def run_backtest():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+INTERESTING_ACTIVITY_FILE = os.path.join(DATA_DIR, "interesting_activity.json")
+
+BLACKLISTED_TICKERS = {"AAF.L"}  # Add any other spammy tickers here if needed
+
+def is_investment_trust(company_name):
+    if not company_name:
+        return False
+    name = company_name.lower()
+    spam_keywords = ["trust", "fund", "ord ", "blackrock", "fidelity", "jpmorgan", "aberdeen", "schiehallion"]
+    return any(keyword in name for keyword in spam_keywords)
+
+
+def process_interesting_activity(symbol, company_name, insider_records, min_shares_threshold=10000):
+    """Scans insider records, blocks noisy tickers, and prevents duplicate monthly spam."""
+    if not insider_records:
+        return
+    
+    # 1. Explicitly drop blacklisted tickers (like Airtel Africa's daily scrip feed)
+    if symbol.upper() in BLACKLISTED_TICKERS or is_investment_trust(company_name):
+        return
+
+    activity_list = []
+    if os.path.exists(INTERESTING_ACTIVITY_FILE):
+        try:
+            with open(INTERESTING_ACTIVITY_FILE, "r") as f:
+                activity_list = json.load(f)
+        except Exception:
+            activity_list = []
+
+    # Map existing entries by symbol_date
+    activity_map = {f"{item['symbol']}_{item['date']}": item for item in activity_list}
+
+    for tx in insider_records:
+        shares = abs(float(tx.get("shares") or tx.get("Shares") or tx.get("amount") or 0))
+        tx_text = str(tx.get("text") or tx.get("transactionText") or "").lower()
+        acq_disp = str(tx.get("acquisitionOrDisposition") or "").upper()
+        
+        is_buy = "buy" in tx_text or "purchase" in tx_text or acq_disp == "A" or shares > 0
+        
+        # Increased threshold to 10,000 shares to ensure we only catch massive block buys
+        if is_buy and shares >= min_shares_threshold:
+            date = str(tx.get("Start Date") or tx.get("startDate") or tx.get("date") or "").split("T")[0]
+            if not date:
+                continue
+                
+            composite_key = f"{symbol}_{date}"
+            
+            # Rate limit check: Ensure this symbol hasn't already logged an event in the same month
+            month_prefix = date[:7] # YYYY-MM
+            already_logged_this_month = any(
+                item["symbol"] == symbol and item["date"].startswith(month_prefix) 
+                for item in activity_map.values()
+            )
+            if already_logged_this_month:
+                continue
+
+            raw_insider = tx.get("filerName") or tx.get("insider") or tx.get("name") or "Director"
+            insider = "Board Member / Director" if "executive" in str(raw_insider).lower() else raw_insider
+            relation = tx.get("position") or tx.get("title") or tx.get("relation") or "Management"
+
+            if composite_key in activity_map:
+                activity_map[composite_key]["shares"] += shares
+            else:
+                activity_map[composite_key] = {
+                    "symbol": symbol,
+                    "name": company_name,
+                    "insider": insider,
+                    "relation": relation,
+                    "shares": shares,
+                    "date": date,
+                    "detected_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
+
+    final_list = sorted(list(activity_map.values()), key=lambda x: x["date"], reverse=True)[:250]
+    
+    with open(INTERESTING_ACTIVITY_FILE, "w") as f:
+        json.dump(final_list, f, indent=2)
+
+@trading_bp.route("/api/trading/interesting_activity", methods=["GET"])
+def get_interesting_activity():
+    """Returns the flagged insider buy activity log."""
+    if os.path.exists(INTERESTING_ACTIVITY_FILE):
+        try:
+            with open(INTERESTING_ACTIVITY_FILE, "r") as f:
+                data = json.load(f)
+            # Filter out Trust items on read just in case
+            filtered = [
+                item for item in data 
+                if not is_investment_trust(item.get("name"))
+            ]
+            return jsonify({"activity": filtered})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    return jsonify({"activity": []})

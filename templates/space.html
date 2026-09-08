@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Space Orbital Simulator{% endblock %}
+
+{% block extra_head %}
+<style>
+    .canvas-container { display: flex; justify-content: center; }
+    canvas { 
+        background-color: #0d1117; 
+        border: 1px solid #30363d; 
+        border-radius: 16px; 
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .slider-header {
+        display: flex; justify-content: space-between; font-weight: 600; color: #c9d1d9; margin-bottom: 4px;
+    }
+    .value-counter { color: #3b8ad4; font-weight: 700; }
+    .form-range::-webkit-slider-thumb { background: #3971a5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="container-fluid px-4">
+        <div class="text-center mb-4">
+            <h1 class="section-title">Solar System Simulation</h1>
+        </div>
+
+        <div class="row align-items-start g-4">
+            <div class="col-xl-9 col-lg-8 canvas-container">
+                <canvas id="solarCanvas" width="800" height="800"></canvas>
+            </div>
+            
+            <div class="col-xl-3 col-lg-4">
+                <div id="paramBox" class="section-box">
+                    <h3 class="mb-3" style="font-size: 1.25rem;">Simulation Controls</h3>
+                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
+                    
+                    <div class="mb-4">
+                        <div class="slider-header">
+                            <span>Time Step (dt)</span>
+                            <span id="dtVal" class="value-counter">0.70</span>
+                        </div>
+                        <input type="range" class="form-range" id="dtSlider" min="0" max="10" step="0.1" value="0.7">
+                    </div>
+
+                    <button class="btn btn-primary w-100 fw-bold" id="resetBtn">Reset Simulation</button>
+                </div>
+                <div id="paramBox" class="section-box">
+                    <h3 class="mb-3" style="font-size: 1.25rem;">Project Description</h3>
+                    <p>Sphere of influence based solar system simulation. Physics engine designed by me, with my original MatPlotLib GUI replaced with a HTML Canvas with help from AI.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById("solarCanvas");
+    const ctx = canvas.getContext("2d");
+    
+    // Scale 0-300 Engine coordinate system to 800x800 Canvas
+    const MAP_LIMIT = 300; 
+    const SCALE = canvas.width / MAP_LIMIT;
+
+    let dtSlider = document.getElementById("dtSlider");
+    let dtValEl = document.getElementById("dtVal");
+
+    let engineFrames = [];
+    let frameIndex = 0;
+    let isFetching = false;
+    let pendingAction = null;
+
+    // --- VIEWPORT STATE VARIABLES ---
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    canvas.style.cursor = 'grab';
+
+    dtSlider.addEventListener("input", (e) => {
+        dtValEl.textContent = parseFloat(e.target.value).toFixed(2);
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+        engineFrames = [];
+        // Reset viewport on simulation reset
+        zoom = 1;
+        panX = 0;
+        panY = 0;
+        fetchSimulation(true);
+    });
+
+    // --- MOUSE EVENTS FOR DRAGGING ---
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        lastMouseX = e.offsetX;
+        lastMouseY = e.offsetY;
+        canvas.style.cursor = 'grabbing';
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        panX += (e.offsetX - lastMouseX);
+        panY += (e.offsetY - lastMouseY);
+        lastMouseX = e.offsetX;
+        lastMouseY = e.offsetY;
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+        canvas.style.cursor = 'grab';
+    });
+
+    // --- WHEEL EVENT FOR ZOOMING ---
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault(); // Prevent page scroll
+        
+        const mouseX = e.offsetX;
+        const mouseY = e.offsetY;
+        
+        // Find where the mouse is in the un-zoomed/un-panned canvas space
+        const unzoomedX = (mouseX - panX) / zoom;
+        const unzoomedY = (mouseY - panY) / zoom;
+        
+        // Adjust zoom
+        const zoomFactor = 1.1;
+        if (e.deltaY < 0) {
+            zoom *= zoomFactor; // Zoom in
+        } else {
+            zoom /= zoomFactor; // Zoom out
+        }
+        
+        // Clamp zoom to reasonable bounds (e.g., 0.1x to 20x)
+        zoom = Math.max(0.1, Math.min(zoom, 20));
+        
+        // Adjust pan to keep the point under the mouse stationary
+        panX = mouseX - (unzoomedX * zoom);
+        panY = mouseY - (unzoomedY * zoom);
+    });
+
+    function triggerAction(actionName) {
+        pendingAction = actionName;
+        engineFrames = [];
+        fetchSimulation(false);
+    }
+
+    async function fetchSimulation(reset = false) {
+        if (isFetching) return;
+        isFetching = true;
+
+        const requestPayload = {
+            dt: parseFloat(dtSlider.value),
+            reset: reset,
+            action: pendingAction
+        };
+        pendingAction = null; 
+
+        try {
+            const response = await fetch("/api/space/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestPayload)
+            });
+            const data = await response.json();
+            
+            if (data.status === "success" && data.frames) {
+                if (engineFrames.length - frameIndex < 10) {
+                    engineFrames = data.frames;
+                    frameIndex = 0;
+                } else {
+                    engineFrames = engineFrames.concat(data.frames);
+                }
+            }
+        } catch (err) {
+            console.error("Simulation API Error:", err);
+        } finally {
+            isFetching = false;
+        }
+    }
+
+    // Updated coordinate translation to include zoom and pan math
+    function toCanvas(x, y) {
+        let baseX = x * SCALE;
+        let baseY = canvas.height - (y * SCALE);
+        return { 
+            cx: (baseX * zoom) + panX, 
+            cy: (baseY * zoom) + panY 
+        };
+    }
+
+    function drawSimulation() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (engineFrames.length > 0) {
+            let frame = engineFrames[frameIndex];
+            
+            // Render Sun (Radius scales with zoom)
+            let sunCenter = toCanvas(frame.sun.pos[0], frame.sun.pos[1]);
+            ctx.beginPath();
+            ctx.arc(sunCenter.cx, sunCenter.cy, frame.sun.radius * SCALE * zoom, 0, 2 * Math.PI);
+            ctx.fillStyle = frame.sun.color;
+            ctx.fill();
+
+            for (const [key, b] of Object.entries(frame.bodies)) {
+                // Render Orbit Paths
+                if (b.orbit && b.orbit.length > 1) {
+                    ctx.beginPath();
+                    let validPoints = 0;
+                    
+                    for (let i = 0; i < b.orbit.length; i++) {
+                        let pt = b.orbit[i];
+                        // Ensure coordinates are valid numbers before drawing
+                        if (pt && Number.isFinite(pt.x) && Number.isFinite(pt.y)) {
+                            let canvasPt = toCanvas(pt.x, pt.y);
+                            if (Number.isFinite(canvasPt.cx) && Number.isFinite(canvasPt.cy)) {
+                                if (validPoints === 0) {
+                                    ctx.moveTo(canvasPt.cx, canvasPt.cy);
+                                } else {
+                                    ctx.lineTo(canvasPt.cx, canvasPt.cy);
+                                }
+                                validPoints++;
+                            }
+                        }
+                    }
+                    
+                    if (validPoints > 1) {
+                        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                        ctx.lineWidth = 1; 
+                        ctx.stroke();
+                    }
+                }
+
+                // Render Sphere of Influence (SOI)
+                let bodyPos = toCanvas(b.pos[0], b.pos[1]);
+                if (b.soi_radius > 0 && Number.isFinite(b.soi_radius)) {
+                    ctx.beginPath();
+                    ctx.arc(bodyPos.cx, bodyPos.cy, b.soi_radius * SCALE * zoom, 0, 2 * Math.PI);
+                    ctx.fillStyle = "rgba(128, 128, 128, 0.15)";
+                    ctx.fill();
+                }
+
+                // Render Body (Planet/Space)
+                ctx.beginPath();
+                let renderRadius = Math.max(b.radius * SCALE * zoom, 2); 
+                ctx.arc(bodyPos.cx, bodyPos.cy, renderRadius, 0, 2 * Math.PI);
+                ctx.fillStyle = b.color;
+                ctx.fill();
+            }
+
+            // Loop and Prefetch Logic
+            if (frameIndex < engineFrames.length - 1) {
+                frameIndex++;
+            }
+            if (frameIndex >= engineFrames.length - 15 && !isFetching && parseFloat(dtSlider.value) > 0) {
+                fetchSimulation(false);
+            }
+        }
+        requestAnimationFrame(drawSimulation);
+    }
+
+    fetchSimulation(true);
+    requestAnimationFrame(drawSimulation);
+</script>
+{% endblock %}
