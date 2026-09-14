@@ -4,114 +4,62 @@
 
 {% block extra_head %}
 <style>
-    .canvas-container { 
-        display: flex; 
-        justify-content: center; 
-    }
-    
-    canvas { 
-        background-color: #0d1117; 
-        border: 1px solid #30363d; 
-        border-radius: 16px; 
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    }
-
-    .slider-header {
-        display: flex;
-        justify-content: space-between;
-        font-weight: 600;
-        color: #c9d1d9;
-        margin-bottom: 4px;
-    }
-
-    .value-counter {
-        color: #3b8ad4;
-        font-weight: 700;
-    }
-
-    .form-range::-webkit-slider-thumb { background: #3971a5; }
-    .form-range::-moz-range-thumb { background: #3971a5; }
-    .form-range::-webkit-slider-thumb:active { background: #3b8ad4; }
-
-    .form-check-input:checked {
-        background-color: #3971a5;
-        border-color: #3971a5;
-    }
-    
-    .learning-active {
-        border-color: #00a884 !important;
-        box-shadow: 0 0 10px rgba(0, 168, 132, 0.2);
-    }
+    .canvas-container { display: flex; justify-content: center; }
+    canvas { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
+    .slider-header { display: flex; justify-content: space-between; font-weight: 600; color: #c9d1d9; }
+    .value-counter { color: #3b8ad4; font-weight: 700; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="content-wrapper">
-    <div class="container-fluid px-4">
-        <div class="text-center mb-4">
-            <h1 class="section-title">Boids Swarm Simulation</h1>
+<div class="container my-4">
+    <h1 class="text-center mb-4">Boids Swarm Simulation</h1>
+
+    <div class="row g-4">
+        <div class="col-lg-8 canvas-container">
+            <canvas id="boidsCanvas" width="800" height="800"></canvas>
         </div>
-
-        <div class="row align-items-start g-4">
-            <div class="col-xl-9 col-lg-8 canvas-container">
-                <canvas id="boidsCanvas" width="800" height="800"></canvas>
-            </div>
-            
-            <div class="col-xl-3 col-lg-4">
-                <div id="paramBox" class="section-box" style="margin-bottom: 0;">
-                    <h3 class="mb-3" style="font-size: 1.25rem;">Simulation Parameters</h3>
-                    <hr style="border-color: #30363d; margin-top: 0; margin-bottom: 20px;">
-                    
-                    <!-- Engine Selection Control -->
-                    <div class="btn-group w-100" role="group">
-                        <button type="button" class="btn btn-outline-primary btn-sm active fw-bold" id="btnPython">Python Backend</button>
-                        <button type="button" class="btn btn-outline-info btn-sm fw-bold" id="btnWasm">C (WebAssembly)</button>
-                    </div>
-
-                    <div class="mb-3">
-                        <div class="slider-header">
-                            <span>Population Size</span>
-                            <span id="boidCountVal" class="value-counter">50</span>
-                        </div>
-                        <input type="range" class="form-range" id="boidCountSlider" min="5" max="150" step="1" value="50">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="slider-header">
-                            <span>Cohesion Magnitude</span>
-                            <span id="cohesionVal" class="value-counter">0.500</span>
-                        </div>
-                        <input type="range" class="form-range" id="cohesionSlider" min="0" max="2.0" step="0.01" value="0.5">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="slider-header">
-                            <span>Separation Distance</span>
-                            <span id="separationVal" class="value-counter">150.0</span>
-                        </div>
-                        <input type="range" class="form-range" id="separationSlider" min="0" max="300" step="1.0" value="150.0">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="slider-header">
-                            <span>Alignment Force</span>
-                            <span id="alignmentVal" class="value-counter">1.50</span>
-                        </div>
-                        <input type="range" class="form-range" id="alignmentSlider" min="0" max="5.0" step="0.05" value="1.5">
-                    </div>
-
-                    <div class="form-check form-switch mb-2 mt-4">
-                        <input class="form-check-input" type="checkbox" id="toggleCenters">
-                        <label class="form-check-label" for="toggleCenters" style="color: #8b949e; font-weight: 600;">Show Group Average-Positions</label>
-                    </div>
-
-                    <div class="form-check form-switch mb-4">
-                        <input class="form-check-input" type="checkbox" id="toggleLearning">
-                        <label class="form-check-label" for="toggleLearning" style="color: #00a884; font-weight: 600;">Enable Bandit RL Learning</label>
-                    </div>
-
-                    <button class="btn btn-primary w-100 text-uppercase" id="runBtn" style="font-size: 0.85rem; letter-spacing: 0.5px;">Restart Sim</button>
+        
+        <div class="col-lg-4">
+            <div class="p-3 border rounded bg-dark">
+                <h3>Simulation Controls</h3>
+                
+                <div class="btn-group w-100 mb-3" role="group">
+                    <button class="btn btn-outline-primary active" id="btnPython">Python Backend</button>
+                    <button class="btn btn-outline-info" id="btnWasm">C (WebAssembly)</button>
                 </div>
+
+                <div class="mb-3">
+                    <div class="slider-header"><span>Population</span><span id="boidCountVal" class="value-counter">50</span></div>
+                    <input type="range" class="form-range" id="boidCountSlider" min="5" max="150" step="1" value="50">
+                </div>
+                
+                <div class="mb-3">
+                    <div class="slider-header"><span>Cohesion</span><span id="cohesionVal" class="value-counter">0.134</span></div>
+                    <input type="range" class="form-range" id="cohesionSlider" min="0" max="0.5" step="0.001" value="0.134">
+                </div>
+                
+                <div class="mb-3">
+                    <div class="slider-header"><span>Separation</span><span id="separationVal" class="value-counter">0.045</span></div>
+                    <input type="range" class="form-range" id="separationSlider" min="0" max="0.1" step="0.001" value="0.045">
+                </div>
+                
+                <div class="mb-3">
+                    <div class="slider-header"><span>Alignment</span><span id="alignmentVal" class="value-counter">0.038</span></div>
+                    <input type="range" class="form-range" id="alignmentSlider" min="0" max="0.1" step="0.001" value="0.038">
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="toggleCenters">
+                    <label class="form-check-label text-light" for="toggleCenters">Show Group Centers</label>
+                </div>
+
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="toggleLearning">
+                    <label class="form-check-label text-success" for="toggleLearning">Enable Bandit RL</label>
+                </div>
+
+                <button class="btn btn-primary w-100" id="runBtn">Restart Simulation</button>
             </div>
         </div>
     </div>
@@ -122,35 +70,30 @@
 <script>
     const canvas = document.getElementById("boidsCanvas");
     const ctx = canvas.getContext("2d");
-    
-    let boidCount = parseInt(document.getElementById("boidCountSlider").value) || 50;
-    const MAP_WIDTH = canvas.width;
-    const MAP_HEIGHT = canvas.height;
     const PYTHON_MAP_SIZE = 25.0;
+    const BOID_STRUCT_SIZE = 20;
 
     let engineMode = "python";
-    
+    let pythonFrames = [];
+    let pythonFrameIndex = 0;
+    let wasmInitialized = false;
+
+    let initSimulation, stepSimulation, getBoidsBuffer;
+
     const ENGINE_CONFIGS = {
         wasm: {
-            cohesion:   { min: "0", max: "2.0",   step: "0.01",  value: "0.500", decimals: 3 },
-            separation: { min: "0", max: "300.0", step: "1.0",   value: "150.0", decimals: 1 },
-            alignment:  { min: "0", max: "5.0",   step: "0.05",  value: "1.50",  decimals: 2 }
+            cohesion:   { min: "0", max: "2.0", step: "0.01", value: "0.50" },
+            separation: { min: "0", max: "300.0", step: "1.0", value: "150.0" },
+            alignment:  { min: "0", max: "5.0", step: "0.05", value: "1.50" }
         },
         python: {
-            cohesion:   { min: "0", max: "0.500", step: "0.001", value: "0.134", decimals: 3 },
-            separation: { min: "0", max: "0.100", step: "0.001", value: "0.045", decimals: 3 },
-            alignment:  { min: "0", max: "0.100", step: "0.001", value: "0.038", decimals: 3 }
+            cohesion:   { min: "0", max: "0.500", step: "0.001", value: "0.134" },
+            separation: { min: "0", max: "0.100", step: "0.001", value: "0.045" },
+            alignment:  { min: "0", max: "0.100", step: "0.001", value: "0.038" }
         }
     };
 
-    let initSimulation, stepSimulation, getBoidsBuffer;
-    const BOID_STRUCT_SIZE = 20;
-
-    let pythonFrames = [];
-    let pythonFrameIndex = 0;
-    let isFetchingPython = false;
-    let isPrefetching = false;
-
+    // UI Elements
     const cohesionSlider = document.getElementById("cohesionSlider");
     const separationSlider = document.getElementById("separationSlider");
     const alignmentSlider = document.getElementById("alignmentSlider");
@@ -161,224 +104,153 @@
     const alignmentValEl = document.getElementById("alignmentVal");
     const boidCountValEl = document.getElementById("boidCountVal");
 
-    boidCountSlider.addEventListener("input", (e) => {
-        boidCountValEl.textContent = e.target.value;
-    });
-
-    cohesionSlider.addEventListener("input", (e) => {
-        const decimals = ENGINE_CONFIGS[engineMode].cohesion.decimals;
-        cohesionValEl.textContent = parseFloat(e.target.value).toFixed(decimals);
-    });
-
-    separationSlider.addEventListener("input", (e) => {
-        const decimals = ENGINE_CONFIGS[engineMode].separation.decimals;
-        separationValEl.textContent = parseFloat(e.target.value).toFixed(decimals);
-    });
-
-    alignmentSlider.addEventListener("input", (e) => {
-        const decimals = ENGINE_CONFIGS[engineMode].alignment.decimals;
-        alignmentValEl.textContent = parseFloat(e.target.value).toFixed(decimals);
-    });
+    // Slider Listeners
+    boidCountSlider.oninput = (e) => boidCountValEl.textContent = e.target.value;
+    cohesionSlider.oninput = (e) => cohesionValEl.textContent = e.target.value;
+    separationSlider.oninput = (e) => separationValEl.textContent = e.target.value;
+    alignmentSlider.oninput = (e) => alignmentValEl.textContent = e.target.value;
 
     function applyEngineConfig(mode) {
-        const config = ENGINE_CONFIGS[mode];
+        const cfg = ENGINE_CONFIGS[mode];
+        
+        cohesionSlider.min = cfg.cohesion.min; cohesionSlider.max = cfg.cohesion.max; cohesionSlider.step = cfg.cohesion.step; cohesionSlider.value = cfg.cohesion.value;
+        cohesionValEl.textContent = cfg.cohesion.value;
 
-        cohesionSlider.min = config.cohesion.min;
-        cohesionSlider.max = config.cohesion.max;
-        cohesionSlider.step = config.cohesion.step;
-        cohesionSlider.value = config.cohesion.value;
-        cohesionValEl.textContent = parseFloat(config.cohesion.value).toFixed(config.cohesion.decimals);
+        separationSlider.min = cfg.separation.min; separationSlider.max = cfg.separation.max; separationSlider.step = cfg.separation.step; separationSlider.value = cfg.separation.value;
+        separationValEl.textContent = cfg.separation.value;
 
-        separationSlider.min = config.separation.min;
-        separationSlider.max = config.separation.max;
-        separationSlider.step = config.separation.step;
-        separationSlider.value = config.separation.value;
-        separationValEl.textContent = parseFloat(config.separation.value).toFixed(config.separation.decimals);
-
-        alignmentSlider.min = config.alignment.min;
-        alignmentSlider.max = config.alignment.max;
-        alignmentSlider.step = config.alignment.step;
-        alignmentSlider.value = config.alignment.value;
-        alignmentValEl.textContent = parseFloat(config.alignment.value).toFixed(config.alignment.decimals);
+        alignmentSlider.min = cfg.alignment.min; alignmentSlider.max = cfg.alignment.max; alignmentSlider.step = cfg.alignment.step; alignmentSlider.value = cfg.alignment.value;
+        alignmentValEl.textContent = cfg.alignment.value;
     }
 
-    document.getElementById("btnWasm").addEventListener("click", () => {
-        setEngineMode("wasm");
-    });
-
-    document.getElementById("btnPython").addEventListener("click", () => {
-        setEngineMode("python");
-    });
+    document.getElementById("btnWasm").onclick = () => setEngineMode("wasm");
+    document.getElementById("btnPython").onclick = () => setEngineMode("python");
+    document.getElementById("runBtn").onclick = () => resetSimulation();
 
     function setEngineMode(mode) {
         if (engineMode === mode) return;
         engineMode = mode;
-        
         applyEngineConfig(mode);
 
-        if (mode === "wasm") {
-            document.getElementById("btnWasm").classList.add("active");
-            document.getElementById("btnPython").classList.remove("active");
-            if (wasmInitialized) {
-                boidCount = parseInt(boidCountSlider.value) || 50;
-                initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
-            }
-        } else {
-            document.getElementById("btnPython").classList.add("active");
-            document.getElementById("btnWasm").classList.remove("active");
+        document.getElementById("btnWasm").classList.toggle("active", mode === "wasm");
+        document.getElementById("btnPython").classList.toggle("active", mode === "python");
+
+        resetSimulation();
+    }
+
+    function resetSimulation() {
+        const count = parseInt(boidCountSlider.value);
+        if (engineMode === "wasm" && wasmInitialized) {
+            initSimulation(count, canvas.width, canvas.height);
+        } else if (engineMode === "python") {
             fetchPythonSimulation(true);
         }
     }
 
     async function fetchPythonSimulation(reset = false) {
-        if (isFetchingPython) return;
-        isFetchingPython = true;
-
-        const boidCountVal = parseInt(boidCountSlider.value) || 50;
-        const cohesionVal = parseFloat(cohesionSlider.value);
-        const separationVal = parseFloat(separationSlider.value);
-        const alignmentVal = parseFloat(alignmentSlider.value);
-        const learningVal = document.getElementById("toggleLearning").checked;
-
         try {
             const response = await fetch("/api/boids/simulate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    cohesion: cohesionVal,
-                    separation: separationVal,
-                    alignment: alignmentVal,
-                    boid_count: boidCountVal,
+                    cohesion: parseFloat(cohesionSlider.value),
+                    separation: parseFloat(separationSlider.value),
+                    alignment: parseFloat(alignmentSlider.value),
+                    boid_count: parseInt(boidCountSlider.value),
                     reset: reset,
-                    learning: learningVal
+                    learning: document.getElementById("toggleLearning").checked
                 })
             });
             const data = await response.json();
-            
-            if (data.status === "success" && data.frames && data.frames.length > 0) {
+            if (data.status === "success") {
                 pythonFrames = data.frames;
                 pythonFrameIndex = 0;
-                isPrefetching = false; // Reset prefetch lock
             }
         } catch (err) {
-            console.error("Error communicating with Python boids API:", err);
-        } finally {
-            isFetchingPython = false;
+            console.error("API Fetch Error:", err);
         }
     }
 
+    // WASM Binding Initialization
     Module.onRuntimeInitialized = () => {
         initSimulation = Module.cwrap('init_simulation', null, ['number', 'number', 'number']);
         stepSimulation = Module.cwrap('step_simulation', null, ['number', 'number', 'number', 'number', 'number', 'number']);
         getBoidsBuffer = Module.cwrap('get_boids_buffer', 'number', []);
 
         wasmInitialized = true;
-        applyEngineConfig(engineMode);
+        resetSimulation();
+        requestAnimationFrame(gameLoop);
+    };
 
-        if (engineMode === "wasm") {
-            initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
-        } else {
-            fetchPythonSimulation(true);
-        }
+    let lastTime = performance.now();
 
-        document.getElementById("runBtn").addEventListener("click", () => {
-            boidCount = parseInt(boidCountSlider.value) || 50;
-            if (engineMode === "wasm") {
-                initSimulation(boidCount, MAP_WIDTH, MAP_HEIGHT);
+    function gameLoop(currentTime) {
+        let dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+        lastTime = currentTime;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const boidCount = parseInt(boidCountSlider.value);
+
+        if (engineMode === "wasm" && wasmInitialized) {
+            stepSimulation(
+                parseFloat(separationSlider.value), 
+                parseFloat(cohesionSlider.value), 
+                parseFloat(alignmentSlider.value), 
+                canvas.width, canvas.height, dt
+            );
+
+            const ptr = getBoidsBuffer();
+            for (let i = 0; i < boidCount; i++) {
+                let addr = ptr + (i * BOID_STRUCT_SIZE);
+                let x = Module.getValue(addr, 'float');
+                let y = Module.getValue(addr + 4, 'float');
+                let vx = Module.getValue(addr + 8, 'float');
+                let vy = Module.getValue(addr + 12, 'float');
+                let isGrouped = Module.getValue(addr + 16, 'i8');
+
+                if (!isNaN(x) && !isNaN(y)) {
+                    drawTriangle(x, y, Math.atan2(vy, vx), isGrouped ? "#3b8ad4" : "#c9d1d9");
+                }
+            }
+        } else if (engineMode === "python" && pythonFrames.length > 0) {
+            const frame = pythonFrames[pythonFrameIndex];
+
+            if (frame) {
+                // Update sliders if RL Learning modified metrics
+                if (document.getElementById("toggleLearning").checked && frame.metrics) {
+                    cohesionSlider.value = frame.metrics.cohesion; cohesionValEl.textContent = frame.metrics.cohesion.toFixed(3);
+                    separationSlider.value = frame.metrics.separation; separationValEl.textContent = frame.metrics.separation.toFixed(3);
+                    alignmentSlider.value = frame.metrics.alignment; alignmentValEl.textContent = frame.metrics.alignment.toFixed(3);
+                }
+
+                // Render boids
+                frame.boids.forEach(b => {
+                    const x = (b.x / PYTHON_MAP_SIZE) * canvas.width;
+                    const y = (b.y / PYTHON_MAP_SIZE) * canvas.height;
+                    drawTriangle(x, y, b.angle, b.in_group ? "#3b8ad4" : "#c9d1d9");
+                });
+
+                // Render center points
+                if (document.getElementById("toggleCenters").checked && frame.centers) {
+                    ctx.fillStyle = "#ff5500";
+                    frame.centers.forEach(c => {
+                        ctx.beginPath();
+                        ctx.arc((c.x / PYTHON_MAP_SIZE) * canvas.width, (c.y / PYTHON_MAP_SIZE) * canvas.height, 6, 0, 2 * Math.PI);
+                        ctx.fill();
+                    });
+                }
+            }
+
+            // Cycle frame index or request new data when reaching the end
+            if (pythonFrameIndex < pythonFrames.length - 1) {
+                pythonFrameIndex++;
             } else {
-                fetchPythonSimulation(true);
+                fetchPythonSimulation(false);
             }
-        });
-
-        let lastTime = performance.now();
-
-        function gameLoop(currentTime) {
-            let dt = (currentTime - lastTime) / 1000;
-            lastTime = currentTime;
-            if (dt > 0.1) dt = 0.1;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const showCenters = document.getElementById("toggleCenters").checked;
-            const isLearningActive = document.getElementById("toggleLearning").checked;
-
-            if (engineMode === "wasm") {
-                let separation = parseFloat(separationSlider.value) || 150.0;
-                let cohesion = parseFloat(cohesionSlider.value) || 0.5;
-                let alignment = parseFloat(alignmentSlider.value) || 1.5;
-
-                stepSimulation(separation, cohesion, alignment, MAP_WIDTH, MAP_HEIGHT, dt);
-
-                const bufferPointer = getBoidsBuffer();
-
-                for (let i = 0; i < boidCount; i++) {
-                    let currentBoidAddress = bufferPointer + (i * BOID_STRUCT_SIZE);
-
-                    let x  = Module.getValue(currentBoidAddress, 'float');
-                    let y  = Module.getValue(currentBoidAddress + 4, 'float');
-                    let vx = Module.getValue(currentBoidAddress + 8, 'float');
-                    let vy = Module.getValue(currentBoidAddress + 12, 'float');
-                    let isGrouped = Module.getValue(currentBoidAddress + 16, 'i8');
-
-                    if (isNaN(x) || isNaN(y)) continue;
-
-                    let angle = Math.atan2(vy, vx);
-                    drawTriangle(x, y, angle, isGrouped ? "#3b8ad4" : "#c9d1d9");
-                }
-            } else if (engineMode === "python") {
-                if (pythonFrames.length > 0) {
-                    let renderIdx = Math.min(pythonFrameIndex, pythonFrames.length - 1);
-                    const frame = pythonFrames[renderIdx];
-
-                    if (frame && frame.metrics && isLearningActive) {
-                        const decimals = ENGINE_CONFIGS.python.cohesion.decimals;
-                        
-                        cohesionSlider.value = frame.metrics.cohesion;
-                        cohesionValEl.textContent = frame.metrics.cohesion.toFixed(decimals);
-
-                        separationSlider.value = frame.metrics.separation;
-                        separationValEl.textContent = frame.metrics.separation.toFixed(decimals);
-
-                        alignmentSlider.value = frame.metrics.alignment;
-                        alignmentValEl.textContent = frame.metrics.alignment.toFixed(decimals);
-                    }
-
-                    if (frame && frame.boids) {
-                        for (let i = 0; i < frame.boids.length; i++) {
-                            const b = frame.boids[i];
-                            const canvasX = (b.x / PYTHON_MAP_SIZE) * canvas.width;
-                            const canvasY = (b.y / PYTHON_MAP_SIZE) * canvas.height;
-                            drawTriangle(canvasX, canvasY, b.angle, b.in_group ? "#3b8ad4" : "#c9d1d9");
-                        }
-                    }
-
-                    if (showCenters && frame && frame.centers) {
-                        ctx.fillStyle = "#ff5500";
-                        for (let c of frame.centers) {
-                            const cx = (c.x / PYTHON_MAP_SIZE) * canvas.width;
-                            const cy = (c.y / PYTHON_MAP_SIZE) * canvas.height;
-                            ctx.beginPath();
-                            ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
-                            ctx.fill();
-                        }
-                    }
-
-                    if (pythonFrameIndex < pythonFrames.length - 1) {
-                        pythonFrameIndex++;
-                    }
-
-                    if (pythonFrameIndex >= Math.floor(pythonFrames.length * 0.8) && !isPrefetching && !isFetchingPython) {
-                        isPrefetching = true;
-                        fetchPythonSimulation(false);
-                    }
-                }
-            }
-
-            requestAnimationFrame(gameLoop);
         }
 
         requestAnimationFrame(gameLoop);
-    };
+    }
 
     function drawTriangle(x, y, angle, color) {
         ctx.save();

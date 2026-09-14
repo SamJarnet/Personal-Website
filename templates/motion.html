@@ -1,151 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}Computer Vision Matrix | Motion Detection{% endblock %}
+{% block title %}Motion Detection Engine{% endblock %}
 
 {% block extra_head %}
 <style>
     .viewport-box {
         background-color: #0d1117;
         border: 1px solid #30363d;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-        position: relative;
+        border-radius: 8px;
+        min-height: 360px;
     }
     .stream-frame {
         width: 100%;
         height: auto;
         display: block;
     }
-    #fallback-msg {
-        padding: 6rem 3rem;
-        text-align: center;
-        color: #8b949e;
-        font-size: 1.1rem;
-    }
-    .control-panel-btn {
-        transition: all 0.2s ease-in-out;
-        font-weight: 500;
-    }
-
-    .status-banner {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        padding: 10px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    .status-idle {
-        background-color: rgba(46, 160, 67, 0.15);
-        border: 1px solid #2ea043;
-        color: #56d364;
-    }
-    .status-motion {
-        background-color: rgba(248, 81, 73, 0.15);
-        border: 1px solid #f85149;
-        color: #ff7b72;
-        animation: pulse-border 1.5s infinite;
-    }
-    .status-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-    .dot-idle {
-        background-color: #56d364;
-    }
-    .dot-motion {
-        background-color: #f85149;
-        animation: pulse-dot 1.5s infinite;
-    }
-
-    .slider-container {
-        background: rgba(48, 54, 61, 0.2);
-        border: 1px solid #30363d;
-        padding: 15px;
-        border-radius: 10px;
-    }
-    .range-value {
-        font-family: monospace;
-        background: #0d1117;
-        padding: 2px 8px;
-        border-radius: 4px;
-        border: 1px solid #30363d;
-        color: #58a6ff;
-    }
-
-    @keyframes pulse-dot {
-        0% { transform: scale(0.9); opacity: 0.6; }
-        50% { transform: scale(1.2); opacity: 1; }
-        100% { transform: scale(0.9); opacity: 0.6; }
-    }
-    @keyframes pulse-border {
-        0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
-        70% { box-shadow: 0 0 0 6px rgba(248, 81, 73, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
-    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="content-wrapper">
-    <div class="container py-4">
-        <div class="text-center mb-5">
-            <h1 class="section-title">OpenCV Motion Decector</h1>
-            <p class="lead" style="color: #8b949e;">Real-time motion detector, make sure there is enough lighting in your room!</p>
-        </div>
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <h1>OpenCV Motion Detector</h1>
+        <p class="text-muted">Real-time web browser motion detection engine</p>
+    </div>
 
-        <div class="row justify-content-center mb-4">
-            <div class="col-lg-12 text-center">
-                <button id="toggleCamBtn" class="btn btn-danger control-panel-btn me-2">🛑 Stop Camera</button>
-                <button id="toggleModeBtn" class="btn btn-outline-primary control-panel-btn">🎭 Switch to Mask View</button>
+    <div class="text-center mb-3">
+        <button id="toggleCamBtn" class="btn btn-danger me-2">Stop Camera</button>
+        <button id="toggleModeBtn" class="btn btn-outline-primary">Switch to Mask View</button>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div id="statusBadge" class="alert alert-success text-center fw-bold mb-3">
+                SYSTEM ACTIVE: NO MOTION
+            </div>
+
+            <div class="viewport-box text-center p-2">
+                <video id="localVideo" autoplay playsinline style="display:none;"></video>
+                <canvas id="captureCanvas" style="display:none;"></canvas>
+                <img id="motionStream" class="stream-frame" alt="Processed Feed">
+                <div id="fallbackMsg" class="text-muted p-5">Connecting to camera...</div>
             </div>
         </div>
-
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div id="motionStatusBanner" class="status-banner status-idle">
-                    <span id="motionStatusDot" class="status-dot dot-idle"></span>
-                    <span id="motionStatusText">SYSTEM ACTIVE: NO MOTION</span>
-                </div>
-
-                <div class="viewport-box">
-                    <!-- Hidden video for capturing local camera -->
-                    <video id="localVideo" autoplay playsinline style="display:none;"></video>
-                    <canvas id="captureCanvas" style="display:none;"></canvas>
-                    <img id="motionStream" class="stream-frame" alt="Processed feed">
-                    <div id="fallback-msg">Connecting to camera...</div>
-                </div>
-            </div>
-            
-            <div class="col-lg-4">
-                <div class="section-box h-100">
-                    <h3>Pipeline Metrics</h3>
-                    <hr style="border-color: #30363d;">
-                    
-                    <div class="slider-container mb-4 text-light">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label for="thresholdSlider" class="form-label fw-bold mb-0">Delta Threshold</label>
-                            <span id="thresholdDisplay" class="range-value">25</span>
-                        </div>
-                        <input type="range" class="form-range" id="thresholdSlider" min="5" max="150" value="25">
-                        <div class="d-flex justify-content-between small text-muted mt-1">
-                            <span>More Sensitive</span>
-                            <span>Less Sensitive</span>
-                        </div>
+        
+        <div class="col-lg-4">
+            <div class="p-3 border rounded bg-dark text-light">
+                <h3>Pipeline Settings</h3>
+                <hr class="border-secondary">
+                
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <label for="thresholdSlider" class="form-label fw-bold">Delta Threshold</label>
+                        <span id="thresholdDisplay" class="badge bg-secondary">25</span>
                     </div>
-                    
-                    <ul class="list-unstyled text-light mt-4" style="line-height: 2rem;">
-                        <li class="mb-2"><strong>Core Package:</strong> OpenCV-Python</li>
-                        <li class="mb-2"><strong>Filter Chain:</strong> Gaussian blur 11x11 kernels</li>
-                        <li class="mb-2"><strong>Alert Matrix:</strong> High threshold red map</li>
-                    </ul>
+                    <input type="range" class="form-range" id="thresholdSlider" min="5" max="150" value="25">
                 </div>
+                
+                <ul class="list-unstyled">
+                    <li><strong>Core Engine:</strong> OpenCV-Python</li>
+                    <li><strong>Pre-processing:</strong> Gaussian Blur (11x11)</li>
+                    <li><strong>Frame Differencing:</strong> Absolute Delta</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -156,179 +72,127 @@
     const canvas = document.getElementById('captureCanvas');
     const ctx = canvas.getContext('2d');
     const streamImg = document.getElementById('motionStream');
-    const fallbackMsg = document.getElementById('fallback-msg');
+    const fallbackMsg = document.getElementById('fallbackMsg');
+    
     const toggleCamBtn = document.getElementById('toggleCamBtn');
     const toggleModeBtn = document.getElementById('toggleModeBtn');
-    
-    // Status Indicators
-    const statusBanner = document.getElementById('motionStatusBanner');
-    const statusDot = document.getElementById('motionStatusDot');
-    const statusText = document.getElementById('motionStatusText');
+    const statusBadge = document.getElementById('statusBadge');
 
-    // Slider Controls
     const thresholdSlider = document.getElementById('thresholdSlider');
     const thresholdDisplay = document.getElementById('thresholdDisplay');
 
     let isCameraOn = true;
     let displayMode = 'overlay';
-    let statusInterval = null;
     let frameInterval = null;
     let streamObject = null;
 
-    // --- Camera & Frame Processing ---
     function startCamera() {
-        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } })
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
             .then(stream => {
                 streamObject = stream;
                 video.srcObject = stream;
                 video.play();
+                
                 fallbackMsg.style.display = 'none';
                 streamImg.style.display = 'block';
-                // Start sending frames
+
                 if (frameInterval) clearInterval(frameInterval);
-                frameInterval = setInterval(sendFrame, 50); // ~20 fps
-                startStatusPolling();
+                frameInterval = setInterval(sendFrame, 50); // ~20 FPS
             })
-            .catch(err => {
-                console.error('Camera access denied:', err);
-                fallbackMsg.innerText = 'Camera access denied. Please allow camera permissions.';
+            .catch(() => {
+                fallbackMsg.innerText = 'Camera access denied.';
                 fallbackMsg.style.display = 'block';
                 streamImg.style.display = 'none';
-                setFrontendStatus('offline');
+                updateStatus('offline');
             });
     }
 
     function stopCamera() {
-        if (frameInterval) {
-            clearInterval(frameInterval);
-            frameInterval = null;
-        }
-        stopStatusPolling();
+        if (frameInterval) clearInterval(frameInterval);
         if (streamObject) {
             streamObject.getTracks().forEach(track => track.stop());
             streamObject = null;
         }
         video.srcObject = null;
-        streamImg.removeAttribute('src');
         streamImg.style.display = 'none';
-        fallbackMsg.style.display = 'block';
         fallbackMsg.innerText = "Camera stopped.";
-        setFrontendStatus('offline');
+        fallbackMsg.style.display = 'block';
+        updateStatus('offline');
     }
 
-    function sendFrame() {
-        if (!video.videoWidth) return;
+    async function sendFrame() {
+        if (!video.videoWidth || !isCameraOn) return;
+        
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
+
         canvas.toBlob(async (blob) => {
             const formData = new FormData();
             formData.append('frame', blob, 'frame.jpg');
-            const url = `/process_frame?mode=${displayMode}`;  // FIXED: removed /motion prefix
+
             try {
-                const response = await fetch(url, { method: 'POST', body: formData });
+                const response = await fetch(`/process_frame?mode=${displayMode}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
                 if (response.ok) {
+                    // Update motion status based on custom response header
+                    const isMoving = response.headers.get('X-Motion-Detected') === 'True';
+                    updateStatus(isMoving ? 'motion' : 'idle');
+
                     const imgBlob = await response.blob();
-                    const imgUrl = URL.createObjectURL(imgBlob);
-                    streamImg.src = imgUrl;
-                    // Revoke old URL after a short delay to avoid memory buildup
-                    setTimeout(() => URL.revokeObjectURL(imgUrl), 200);
-                } else {
-                    console.error('Server processing error:', response.status);
+                    streamImg.src = URL.createObjectURL(imgBlob);
                 }
             } catch (err) {
-                console.error('Frame send error:', err);
+                console.error('Frame processing error:', err);
             }
         }, 'image/jpeg', 0.8);
     }
 
-    // --- Status Polling ---
-    function setFrontendStatus(state) {
+    function updateStatus(state) {
         if (state === 'motion') {
-            statusBanner.className = "status-banner status-motion";
-            statusDot.className = "status-dot dot-motion";
-            statusText.innerText = "MOTION DETECTED";
+            statusBadge.className = "alert alert-danger text-center fw-bold mb-3";
+            statusBadge.innerText = "MOTION DETECTED";
         } else if (state === 'idle') {
-            statusBanner.className = "status-banner status-idle";
-            statusDot.className = "status-dot dot-idle";
-            statusText.innerText = "SYSTEM ACTIVE: NO MOTION";
+            statusBadge.className = "alert alert-success text-center fw-bold mb-3";
+            statusBadge.innerText = "SYSTEM ACTIVE: NO MOTION";
         } else {
-            statusBanner.className = "status-banner btn-secondary opacity-50";
-            statusDot.className = "status-dot bg-secondary";
-            statusText.innerText = "SYSTEM OFFLINE";
+            statusBadge.className = "alert alert-secondary text-center fw-bold mb-3";
+            statusBadge.innerText = "SYSTEM OFFLINE";
         }
     }
 
-    function startStatusPolling() {
-        if (statusInterval) clearInterval(statusInterval);
-        statusInterval = setInterval(() => {
-            if (!isCameraOn) return;
-            fetch("/status")  // FIXED: removed /motion prefix
-                .then(res => res.json())
-                .then(data => {
-                    if (data.movement) setFrontendStatus('motion');
-                    else setFrontendStatus('idle');
-                })
-                .catch(() => {});
-        }, 200);
-    }
-
-    function stopStatusPolling() {
-        if (statusInterval) {
-            clearInterval(statusInterval);
-            statusInterval = null;
-        }
-    }
-
-    // --- Threshold Slider ---
-    thresholdSlider.addEventListener('input', (e) => {
+    thresholdSlider.oninput = (e) => {
         const val = e.target.value;
         thresholdDisplay.innerText = val;
 
-        fetch("/threshold", {  // FIXED: removed /motion prefix
+        fetch("/threshold", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ value: val })
-        })
-        .then(res => res.json())
-        .then(data => console.log("Backend threshold synced:", data.current_threshold))
-        .catch(err => console.error("Error updating threshold:", err));
-    });
-
-    // --- Toggle Controls ---
-    function toggleCameraState() {
-        if (isCameraOn) {
-            isCameraOn = false;
-            stopCamera();
-            toggleCamBtn.innerText = "📹 Start Camera";
-            toggleCamBtn.className = "btn btn-success control-panel-btn me-2";
-        } else {
-            isCameraOn = true;
-            toggleCamBtn.innerText = "🛑 Stop Camera";
-            toggleCamBtn.className = "btn btn-danger control-panel-btn me-2";
-            startCamera();
-        }
-    }
-
-    function toggleDisplayMode() {
-        displayMode = (displayMode === 'overlay') ? 'mask' : 'overlay';
-        if (displayMode === 'mask') {
-            toggleModeBtn.innerText = "🖼️ Switch to Overlay View";
-            toggleModeBtn.className = "btn btn-primary control-panel-btn";
-        } else {
-            toggleModeBtn.innerText = "🎭 Switch to Mask View";
-            toggleModeBtn.className = "btn btn-outline-primary control-panel-btn";
-        }
-        // mode will be applied on next frame send; no need to restart camera
-    }
-
-    toggleCamBtn.addEventListener('click', toggleCameraState);
-    toggleModeBtn.addEventListener('click', toggleDisplayMode);
-
-    // --- Initialisation ---
-    window.onload = function() {
-        // Start camera automatically
-        startCamera();
+        });
     };
+
+    toggleCamBtn.onclick = () => {
+        isCameraOn = !isCameraOn;
+        if (isCameraOn) {
+            toggleCamBtn.innerText = "Stop Camera";
+            toggleCamBtn.className = "btn btn-danger me-2";
+            startCamera();
+        } else {
+            toggleCamBtn.innerText = "Start Camera";
+            toggleCamBtn.className = "btn btn-success me-2";
+            stopCamera();
+        }
+    };
+
+    toggleModeBtn.onclick = () => {
+        displayMode = (displayMode === 'overlay') ? 'mask' : 'overlay';
+        toggleModeBtn.innerText = displayMode === 'mask' ? "Switch to Overlay View" : "Switch to Mask View";
+    };
+
+    window.onload = startCamera;
 </script>
 {% endblock %}

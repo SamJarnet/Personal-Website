@@ -4,25 +4,20 @@ import numpy as np
 from engines.motion_engine import MotionDetectorEngine
 
 motion_bp = Blueprint('motion', __name__)
-
-# Global engine instance
 engine = MotionDetectorEngine()
 
-# --- MAIN PAGE ROUTE ---
-@motion_bp.route('/motion')  # Changed from '/' to '/motion'
+@motion_bp.route('/motion')
 def index():
     """Main motion detection page."""
     return render_template('motion.html')
 
-# --- API ROUTES ---
 @motion_bp.route('/process_frame', methods=['POST'])
 def process_frame():
-    """Receive a frame from the client, process it, return the processed image."""
+    """Receive frame, process motion detection, and attach motion status in header."""
     file = request.files.get('frame')
     if not file:
         return "No frame", 400
 
-    # Decode JPEG/PNG to BGR
     img_array = np.frombuffer(file.read(), np.uint8)
     frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     if frame is None:
@@ -31,20 +26,17 @@ def process_frame():
     mode = request.args.get('mode', 'overlay')
     processed = engine.process_frame(frame, mode)
 
-    # Encode as JPEG and return
     _, jpeg = cv2.imencode('.jpg', processed)
-    return Response(jpeg.tobytes(), mimetype='image/jpeg')
-
-@motion_bp.route('/status', methods=['GET'])
-def motion_status():
-    """Return whether motion is currently detected."""
-    return jsonify({'movement': engine.get_motion_status()})
+    
+    # Return processed frame with motion status included in the HTTP headers
+    response = Response(jpeg.tobytes(), mimetype='image/jpeg')
+    response.headers['X-Motion-Detected'] = str(engine.get_motion_status())
+    return response
 
 @motion_bp.route('/threshold', methods=['POST'])
 def set_threshold():
-    """Update the motion detection threshold."""
-    data = request.get_json()
-    if 'value' not in data:
-        return jsonify({'error': 'Missing value'}), 400
-    engine.set_threshold(data['value'])
+    """Update motion detection sensitivity threshold."""
+    data = request.get_json() or {}
+    if 'value' in data:
+        engine.set_threshold(data['value'])
     return jsonify({'current_threshold': engine.threshold})
