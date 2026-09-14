@@ -15,6 +15,8 @@ class ContextualBandit:
         self.decay_rate = 0.995
 
     def get_context(self):
+        # get context for bandit based on average distance and velocity of boids
+
         avg_dist = self.env.find_distances()
         avg_vel = np.mean([np.linalg.norm(b["vel"]) for b in self.env.boids])
         if avg_vel < 0.05:
@@ -27,6 +29,7 @@ class ContextualBandit:
             return "flocking"
             
     def get_reward(self, old_context, dist_before, dist_after):
+        # simple reward function based of change in average distance 
         if old_context == "scattered":
             if dist_after < dist_before:
                 return 1
@@ -42,6 +45,7 @@ class ContextualBandit:
         return 0
 
     def pull(self, action):
+        # update environment paramaters based on action
         step_size = 0.005
         if action == 0:
             self.env.cohesion_strength = min(0.5, self.env.cohesion_strength + step_size)
@@ -57,12 +61,15 @@ class ContextualBandit:
             self.env.alignment_strength = max(0.0, self.env.alignment_strength - step_size)
 
     def thomson_sample(self, context):
+        # sample an action based on current context using Thompson Sampling
         P = [0.0] * self.action_count
         for j in range(0, self.action_count):
             P[j] = np.random.beta(self.alpha[context][j], self.beta[context][j])
         return np.argmax(P)
     
     def update(self, context, action, dist_before, dist_after):
+        # update bandit parameters based on reward
+
         reward = self.get_reward(context, dist_before, dist_after)
         
         if reward == 1:
@@ -101,7 +108,6 @@ class Boids:
         self.alignment_strength = alignment
         self.max_vel = 1.0
         
-        # Instantiate contextual RL layer
         self.bandit = ContextualBandit(self)
 
         self.bandit_K = 20
@@ -112,6 +118,7 @@ class Boids:
         self.frame_count = 0
 
     def check_boundaries(self):
+        # wrap boids around the edges of the map
         for i in range(0, len(self.boids)):
             pos = self.boids[i]["pos"]
             pos_x, pos_y = pos[0], pos[1]
@@ -121,11 +128,13 @@ class Boids:
             if pos_y >= self.y_width: self.boids[i]["pos"][1] = 0
 
     def _pairwise_distance_matrix(self):
+        # compute pairwise distance matrix for all boids (AI showed this idea I just coded it up)
         positions = np.array([b["pos"] for b in self.boids])
         diff = positions[:, None, :] - positions[None, :, :]
         return np.linalg.norm(diff, axis=-1)
 
     def find_groups(self):
+        # use the distance matrix to find groups with better time complexity
         n = len(self.boids)
         if n == 0:
             self.adjacency_list = {}
@@ -142,6 +151,7 @@ class Boids:
         return groups, in_group
 
     def create_groups(self, adj_list):
+        # return all groups using BFS
         groups = []
         grouped = set()
         for i in range(len(self.boids)):
@@ -161,6 +171,7 @@ class Boids:
         return groups
 
     def find_average(self, groups, target):
+        # average position of boids in each group
         group_positions = []
         for group in groups: 
             if len(group) <= 1:
@@ -177,6 +188,7 @@ class Boids:
         return group_positions
 
     def find_distances(self):
+        # again idea from AI, I just coded it up
         n = len(self.boids)
         if n < 2:
             return 0.0
@@ -184,16 +196,18 @@ class Boids:
         iu = np.triu_indices(n, k=1)
         return float(dist_matrix[iu].mean())
 
-    def cohesion(self, boid_to_group, centers, boid):
-        gi = boid_to_group[boid]
-        if centers[gi] is None:
+    def cohesion(self, boid_group, centers, boid):
+        # this will bring boids to the center of their group
+        boid = boid_group[boid]
+        if centers[boid] is None:
             return np.array([0.0, 0.0])
-        difference = np.array(centers[gi] - self.boids[boid]["pos"])
+        difference = np.array(centers[boid] - self.boids[boid]["pos"])
         return (difference * self.cohesion_strength)
     
-    def seperation(self, boid_to_group, groups, boid):
-        gi = boid_to_group[boid]
-        group = groups[gi]
+    def seperation(self, boid_group, groups, boid):
+        # this will push boids away from each other
+        boid = boid_group[boid]
+        group = groups[boid]
         if len(group) <= 1:
             return np.array([0.0, 0.0])
 
@@ -206,11 +220,12 @@ class Boids:
                     vec += displacement / mod_r  
         return vec * self.seperation_strength
 
-    def allignment(self, boid_to_group, avg_vels, boid):
-        gi = boid_to_group[boid]
-        if avg_vels[gi] is None:
+    def allignment(self, boid_group, avg_vels, boid):
+        # this will align boids by averaging their velocities in their group
+        boid = boid_group[boid]
+        if avg_vels[boid] is None:
             return np.array([0.0, 0.0])
-        difference = np.array(avg_vels[gi] - self.boids[boid]["vel"])
+        difference = np.array(avg_vels[boid] - self.boids[boid]["vel"])
         return (difference * self.alignment_strength)
     
     def cap_speed(self, i):
@@ -220,8 +235,10 @@ class Boids:
             self.boids[i]["vel"] = (boid_vel / mag_vel) * self.max_vel
 
     def step(self, run_learning=False):
-        self.check_boundaries()
 
+
+        self.check_boundaries()
+        # update the bandit every K frames to improve performance
         if run_learning:
             if self.frame_count % self.bandit_K == 0:
                 if self.pending_action is not None:
@@ -236,15 +253,17 @@ class Boids:
                 self.bandit.pull(self.pending_action)
                 self.bandit_window = []
 
+        # compute groups and their average positions and velocities
         groups, in_group = self.find_groups()
-        boid_to_group = {b: gi for gi, group in enumerate(groups) for b in group}
+        boid_group = {b: boid for boid, group in enumerate(groups) for b in group}
         group_avg_pos = self.find_average(groups, "pos")
         group_avg_vel = self.find_average(groups, "vel")
 
+        # update all boids based of their rules
         for i in range(0, len(self.boids)):
-            cohesion_force = self.cohesion(boid_to_group, group_avg_pos, i)
-            seperation_force = self.seperation(boid_to_group, groups, i)
-            alignment_force = self.allignment(boid_to_group, group_avg_vel, i)
+            cohesion_force = self.cohesion(boid_group, group_avg_pos, i)
+            seperation_force = self.seperation(boid_group, groups, i)
+            alignment_force = self.allignment(boid_group, group_avg_vel, i)
 
             self.boids[i]["vel"] += cohesion_force + seperation_force + alignment_force
             self.cap_speed(i)
@@ -255,8 +274,10 @@ class Boids:
             self.frame_count += 1
 
         return group_avg_pos, in_group
+
     
     def run_simulation(self, total_frames=360, run_learning=False):
+        # returns a list of data for the routes to use for rendering the simulation
         history = []
         for _ in range(total_frames):
             group_averages, in_group = self.step(run_learning=run_learning)
