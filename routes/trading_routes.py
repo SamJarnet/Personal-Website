@@ -33,7 +33,6 @@ QUOTE_KEYS = [
 
 
 def clean(val):
-    """Makes numpy/NaN values safe for JSON."""
     if val is None:
         return None
     if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
@@ -45,9 +44,7 @@ def clean(val):
         return None if (math.isnan(v) or math.isinf(v)) else v
     return val
 
-
 def series_to_json(s: pd.Series):
-    """Turns a pandas Series into {labels, values} for Chart.js."""
     labels, values = [], []
     for ts, v in s.items():
         v = clean(v)
@@ -60,6 +57,22 @@ def series_to_json(s: pd.Series):
             pass
     return {"labels": labels, "values": values}
 
+def _build_chart_markers(df, trades):
+    labels_all = [ts.strftime("%Y-%m-%d") for ts in df.index]
+    label_index = {l: i for i, l in enumerate(labels_all)}
+    buy_markers, sell_markers = [], []
+
+    for open_trade, sell_trade, pnl in trades:
+        buy_date = open_trade[1].strftime("%Y-%m-%d")
+        sell_date = sell_trade[1].strftime("%Y-%m-%d")
+        bi = label_index.get(buy_date)
+        si = label_index.get(sell_date)
+        if bi is not None:
+            buy_markers.append({"index": bi, "price": open_trade[2]})
+        if si is not None:
+            sell_markers.append({"index": si, "price": sell_trade[2], "pnl": pnl})
+
+    return buy_markers, sell_markers
 
 
 @trading_bp.route("/trading")
@@ -80,7 +93,6 @@ def get_quote(symbol):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @trading_bp.route("/api/trading/history/<symbol>")
 def get_history(symbol):
     period = request.args.get("period", "1Y")
@@ -93,50 +105,6 @@ def get_history(symbol):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-def _calculate_performance_metrics(cap_series, bah_series, trades, capital):
-    run_max = cap_series.cummax()
-    final_algo = cap_series.iloc[-1]
-    final_bah = bah_series.iloc[-1]
-
-    algo_ret = (final_algo - capital) / capital * 100
-    bah_ret = (final_bah - capital) / capital * 100
-    max_dd = float(((cap_series - run_max) / run_max).min() * 100)
-
-    wins = [t for t in trades if t[2] > 0]
-    losses = [t for t in trades if t[2] <= 0]
-    win_rate = len(wins) / len(trades) * 100 if trades else 0
-
-    return run_max, {
-        "total_trades": len(trades),
-        "win_rate": round(win_rate, 1),
-        "max_drawdown": round(max_dd, 1),
-        "algo_final": round(final_algo, 2),
-        "algo_return": round(algo_ret, 1),
-        "bah_final": round(final_bah, 2),
-        "bah_return": round(bah_ret, 1),
-        "vs_bah": round(algo_ret - bah_ret, 1),
-    }
-
-
-def _build_chart_markers(df, trades):
-    labels_all = [ts.strftime("%Y-%m-%d") for ts in df.index]
-    label_index = {l: i for i, l in enumerate(labels_all)}
-    buy_markers, sell_markers = [], []
-
-    for open_trade, sell_trade, pnl in trades:
-        buy_date = open_trade[1].strftime("%Y-%m-%d")
-        sell_date = sell_trade[1].strftime("%Y-%m-%d")
-        bi = label_index.get(buy_date)
-        si = label_index.get(sell_date)
-        if bi is not None:
-            buy_markers.append({"index": bi, "price": open_trade[2]})
-        if si is not None:
-            sell_markers.append({"index": si, "price": sell_trade[2], "pnl": pnl})
-
-    return buy_markers, sell_markers
-
-
 @trading_bp.route("/api/trading/backtest", methods=["POST"])
 def run_backtest():
     try:
@@ -147,6 +115,8 @@ def run_backtest():
         sma_fast = int(body.get("sma_fast", 20))
         sma_slow = int(body.get("sma_slow", 50))
         stop_ma = int(body.get("stop_ma", 150))
+        transaction_fee = float(body.get("transaction_fee", 0.1)) / 100
+        avg_div_yield = float(body.get("dividend_yield", 4.5)) / 100
 
         p, i = PERIOD_MAP.get(period, ("2y", "1d"))
         df = yf.Ticker(symbol).history(period=p, interval=i)
@@ -156,14 +126,45 @@ def run_backtest():
         df.index = pd.to_datetime(df.index, utc=True).tz_localize(None)
         df = df[["Close"]].dropna()
 
-        # Run the actual strategy
-        df = strategy_engine.compute_signals(df, sma_fast, sma_slow, stop_ma)
-        trades, final_profit, cap_series = strategy_engine.trade_loop(df, capital)
+        years_held = (df.index[-1] - df.index[0]).days / 365.25
+        if years_held <= 0: years_held = 1.0
 
-        start_price = df["Close"].iloc[0]
-        bah_series = df["Close"] * (capital / start_price)
+        # Run strategy engine purely abstracted[cite: 1]
+        df = strategy_engine.compute_signals(
+            df, name=symbol, 
+            sma_fast_len=sma_fast, sma_slow_len=sma_slow, stop_ma_len=stop_ma
+        )
+        trades, final_profit, cap_series = strategy_engine.trade_loop(
+            df, starting_capital=capital, position_size=1.0, transaction_fee=transaction_fee
+        )
+        
+        gain, divs, bah_series = strategy_engine.calculate_noalgorithm_trade(
+            symbol, df, capital, average_dividend_yield=avg_div_yield, years_held=years_held
+        )
 
-        run_max, stats = _calculate_performance_metrics(cap_series, bah_series, trades, capital)
+        algo_volatility, algo_drawdown, algo_sharpe = strategy_engine.calculate_risk_metrics(cap_series)
+        bah_volatility, bah_drawdown, bah_sharpe = strategy_engine.calculate_risk_metrics(bah_series)
+
+        algo_return = (strategy_engine.calculate_yearly_return(cap_series.iloc[-1], capital, years_held) - 1) * 100
+        bah_return = (strategy_engine.calculate_yearly_return(bah_series.iloc[-1] + divs, capital, years_held) - 1) * 100
+
+        wins = [t for t in trades if t[2] > 0]
+        win_rate = len(wins) / len(trades) * 100 if trades else 0
+
+        stats = {
+            "total_trades": len(trades),
+            "win_rate": round(win_rate, 1),
+            "algo_return": round(algo_return, 2),
+            "algo_sharpe": round(algo_sharpe, 2),
+            "algo_volatility": round(algo_volatility * 100, 2),
+            "algo_drawdown": round(algo_drawdown * 100, 2),
+            "bah_return": round(bah_return, 2),
+            "bah_sharpe": round(bah_sharpe, 2),
+            "bah_volatility": round(bah_volatility * 100, 2),
+            "bah_drawdown": round(bah_drawdown * 100, 2),
+            "vs_bah": round(algo_return - bah_return, 1),
+        }
+
         buy_markers, sell_markers = _build_chart_markers(df, trades)
 
         def ms(col):

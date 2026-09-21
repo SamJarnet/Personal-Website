@@ -94,9 +94,11 @@
     <div class="td-params">
       <h4 style="margin-top:0;">SMA Crossover Strategy</h4>
       <div class="td-prow"><label>Starting Capital ($)</label><input id="p-cap" value="10000"/></div>
-      <div class="td-prow"><label>Fast SMA (days)</label><input id="p-fast" value="5"/></div>
-      <div class="td-prow"><label>Slow SMA (days)</label><input id="p-slow" value="20"/></div>
-      <div class="td-prow"><label>Stop-loss MA (days)</label><input id="p-stop" value="30"/></div>
+      <div class="td-prow"><label>Fast SMA (days)</label><input id="p-fast" value="20"/></div>
+      <div class="td-prow"><label>Slow SMA (days)</label><input id="p-slow" value="50"/></div>
+      <div class="td-prow"><label>Stop-loss MA (days)</label><input id="p-stop" value="150"/></div>
+      <div class="td-prow"><label>Transaction Fee (%)</label><input id="p-fee" value="0.1"/></div>
+      <div class="td-prow"><label>Dividend Yield (%)</label><input id="p-div" value="4.5"/></div>
       <div class="td-prow">
         <label>Period</label>
         <select id="p-period">
@@ -105,9 +107,7 @@
       </div>
       <button id="td-bt-run" onclick="tdRunBacktest()" style="width:100%;margin-top:6px;">Run Backtest</button>
       <div class="td-note">
-        Enters long when the fast SMA crosses above the slow SMA; exits on a
-        cross back below, or if price falls under the longer stop-loss MA.
-        Compared against simply buying and holding over the same period.
+        Engine stats calculated using main.py logic (Sharpe, Volatility, Max Drawdown).
       </div>
     </div>
 
@@ -116,7 +116,6 @@
     </div>
     <div class="td-stats-grid" id="td-bt-stats"></div>
   </div>
-</div>
 
 <script>
 const TC = { text:'#e1e7ed', sub:'#768390', border:'#262c36', surf:'#131720',
@@ -221,6 +220,8 @@ async function tdRunBacktest(){
     sma_fast: parseInt(tdEl('p-fast').value),
     sma_slow: parseInt(tdEl('p-slow').value),
     stop_ma: parseInt(tdEl('p-stop').value),
+    transaction_fee: parseFloat(tdEl('p-fee').value),
+    dividend_yield: parseFloat(tdEl('p-div').value),
     period: tdEl('p-period').value,
   };
   const r = await fetch('/api/trading/backtest', {
@@ -237,12 +238,14 @@ async function tdRunBacktest(){
 
   const s = r.stats;
   const rows = [
-    ['Strategy Return', s.algo_return.toFixed(1) + '%'],
-    ['Buy & Hold Return', s.bah_return.toFixed(1) + '%'],
-    ['Vs. Buy & Hold', (s.vs_bah >= 0 ? '+' : '') + s.vs_bah.toFixed(1) + 'pp'],
+    ['Strategy Return', s.algo_return.toFixed(2) + '%'],
+    ['Strategy Sharpe', s.algo_sharpe.toFixed(2)],
+    ['Strategy Vol / DD', s.algo_volatility.toFixed(1) + '% / ' + s.algo_drawdown.toFixed(1) + '%'],
+    ['Buy & Hold Return', s.bah_return.toFixed(2) + '%'],
+    ['Buy & Hold Sharpe', s.bah_sharpe.toFixed(2)],
+    ['B&H Vol / DD', s.bah_volatility.toFixed(1) + '% / ' + s.bah_drawdown.toFixed(1) + '%'],
     ['Total Trades', s.total_trades],
     ['Win Rate', s.win_rate.toFixed(1) + '%'],
-    ['Max Drawdown', s.max_drawdown.toFixed(1) + '%'],
   ];
   const cont = tdEl('td-bt-stats'); cont.innerHTML = '';
   for (const [label, v] of rows) {
