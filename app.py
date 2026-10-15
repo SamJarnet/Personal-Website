@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Flask, render_template
 from routes.trading_routes import trading_bp
 from routes.boids_routes import boids_bp

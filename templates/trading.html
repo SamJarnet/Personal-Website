@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Trading Signal Bot{% endblock %}
+{% block title %}Trading Interface{% endblock %}
 
 {% block extra_head %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -8,21 +8,17 @@
   :root {
     --td-bg: #0b0e14; --td-surf: #131720; --td-border: #262c36;
     --td-text: #e1e7ed; --td-sub: #768390;
-    --td-green: #2da44e; --td-red: #f85149; --td-accent: #3971a5;
+    --td-green: #2da44e; --td-red: #f85149; --td-accent: #3971a5; --td-yellow: #d29922;
     --td-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --td-font-mono: "SF Mono", Consolas, Menlo, monospace;
+    --td-r: 4px;
   }
-  #td-app { background: var(--td-bg); color: var(--td-text); font-family: var(--td-font-sans);
-    font-size: 13px; min-height: calc(100vh - 60px); }
-  #td-topbar { display:flex; align-items:center; gap:12px; padding:10px 16px;
-    background: var(--td-surf); border-bottom:1px solid var(--td-border); }
-  #td-ticker { background:var(--td-bg); color:var(--td-text); border:1px solid var(--td-border);
-    padding:6px 10px; border-radius:3px; width:120px; font-family:var(--td-font-mono); }
-  #td-search-btn, #td-bt-run { background:var(--td-accent); color:#fff; border:none;
-    padding:6px 14px; border-radius:3px; cursor:pointer; font-weight:600; }
-  #td-tabs { display:flex; border-bottom:1px solid var(--td-border); }
-  .td-tab { background:none; border:none; color:var(--td-sub); padding:10px 18px;
-    cursor:pointer; font-size:13px; border-bottom:2px solid transparent; }
+  #td-app { background: var(--td-bg); color: var(--td-text); font-family: var(--td-font-sans); font-size: 13px; min-height: calc(100vh - 60px); }
+  #td-topbar { display:flex; align-items:center; gap:12px; padding:10px 16px; background: var(--td-surf); border-bottom:1px solid var(--td-border); }
+  #td-ticker { background:var(--td-bg); color:var(--td-text); border:1px solid var(--td-border); padding:6px 10px; border-radius:3px; width:120px; font-family:var(--td-font-mono); }
+  #td-search-btn, #td-bt-run, #btnRunScreen { background:var(--td-accent); color:#fff; border:none; padding:6px 14px; border-radius:3px; cursor:pointer; font-weight:600; }
+  #td-tabs { display:flex; border-bottom:1px solid var(--td-border); background: var(--td-surf); }
+  .td-tab { background:none; border:none; color:var(--td-sub); padding:10px 18px; cursor:pointer; font-size:13px; border-bottom:2px solid transparent; }
   .td-tab.active { color:var(--td-text); border-bottom-color:var(--td-accent); }
   .td-panel { display:none; padding:16px; }
   .td-panel.active { display:block; }
@@ -30,44 +26,54 @@
   #td-co-name { font-size:18px; font-weight:700; }
   #td-co-sector { color:var(--td-sub); font-size:12px; }
   #td-co-price { font-size:22px; font-family:var(--td-font-mono); margin-right:8px; }
-  .td-ctrl { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
-  .td-pill { background:var(--td-surf); border:1px solid var(--td-border); color:var(--td-sub);
-    padding:5px 12px; border-radius:14px; cursor:pointer; font-size:12px; }
+  .td-ctrl { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; align-items: center; }
+  .td-pill { background:var(--td-surf); border:1px solid var(--td-border); color:var(--td-sub); padding:5px 12px; border-radius:14px; cursor:pointer; font-size:12px; }
   .td-pill.active { color:var(--td-text); border-color:var(--td-accent); }
-  .td-chart-wrap { position:relative; height:380px; background:var(--td-surf);
-    border:1px solid var(--td-border); border-radius:4px; padding:12px; }
-  .td-params { background:var(--td-surf); border:1px solid var(--td-border); border-radius:4px;
-    padding:14px; margin-bottom:12px; max-width:340px; }
+  .td-chart-wrap { position:relative; height:380px; background:var(--td-surf); border:1px solid var(--td-border); border-radius:4px; padding:12px; }
+  .td-params { background:var(--td-surf); border:1px solid var(--td-border); border-radius:4px; padding:14px; margin-bottom:12px; max-width:340px; }
   .td-prow { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .td-prow label { color:var(--td-sub); font-size:12px; }
-  .td-prow input, .td-prow select { width:90px; background:var(--td-bg); color:var(--td-text);
-    border:1px solid var(--td-border); border-radius:3px; padding:4px 6px; text-align:right; }
-  .td-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
-    gap:10px; margin-top:14px; max-width:600px; }
-  .td-stat-card { background:var(--td-surf); border:1px solid var(--td-border); border-radius:4px;
-    padding:10px; }
+  .td-prow input, .td-prow select { width:90px; background:var(--td-bg); color:var(--td-text); border:1px solid var(--td-border); border-radius:3px; padding:4px 6px; text-align:right; }
+  .td-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:14px; max-width:600px; }
+  .td-stat-card { background:var(--td-surf); border:1px solid var(--td-border); border-radius:4px; padding:10px; }
   .td-stat-card .l { color:var(--td-sub); font-size:11px; text-transform:uppercase; }
   .td-stat-card .v { font-family:var(--td-font-mono); font-size:15px; margin-top:2px; }
-  #td-status { color:var(--td-sub); font-size:12px; margin-left:auto; }
-  .td-note { color:var(--td-sub); font-size:11px; margin-top:8px; max-width:600px; }
+  #td-status { color:var(--td-sub); font-size:12px; }
+  .td-admin-ctrl-btn { background:var(--td-bg); border:1px solid var(--td-border); color:var(--td-sub); font-size:11px; font-weight:700; padding:6px 12px; border-radius:var(--td-r); cursor:pointer; margin-left:auto; }
+  .td-admin-ctrl-btn.admin-active { border-color:var(--td-red); color:var(--td-red); }
+  
+  /* Screener & Table Formatting */
+  .td-table-wrap { overflow-x: auto; margin-top: 10px; }
+  .td-table { width:100%; border-collapse: collapse; font-size: 11px; text-align: left; }
+  .td-table th { background: var(--td-surf); color: var(--td-sub); padding: 8px 12px; border-bottom: 1px solid var(--td-border); cursor: pointer; }
+  .td-table td { padding: 8px 12px; border-bottom: 1px solid var(--td-border); font-family: var(--td-font-mono); }
+  .td-range-box { margin-bottom: 10px; }
+  .td-range-hdr { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+  .td-range-input { width: 100%; accent-color: var(--td-accent); }
+  .td-pos { color: var(--td-green); }
+  .td-neg { color: var(--td-red); }
 </style>
 {% endblock %}
 
 {% block content %}
 <div id="td-app">
   <div id="td-topbar">
-    <input id="td-ticker" type="text" value="AAPL" placeholder="TICKER"
-           autocomplete="off" onkeydown="if(event.key==='Enter')tdSearch()"/>
+    <input id="td-ticker" type="text" value="AAPL" placeholder="TICKER" autocomplete="off" onkeydown="if(event.key==='Enter')tdSearch()"/>
     <button id="td-search-btn" onclick="tdSearch()">Load</button>
     <span id="td-status">Enter a ticker and press Load</span>
+    <button id="admin-login-btn" class="td-admin-ctrl-btn">🔒 Admin Login</button>
   </div>
 
   <div id="td-tabs">
+    <!-- PUBLIC USER TABS -->
     <button id="td-tab-btn-market" class="td-tab active" onclick="tdTab('market', this)">Market Data</button>
     <button id="td-tab-btn-backtest" class="td-tab" onclick="tdTab('backtest', this)">Signal Bot Backtest</button>
+    <!-- RESTRICTED ADMIN TABS -->
+    <button id="td-tab-btn-screener" class="td-tab admin-only" style="display:none;" onclick="tdTab('screener', this)">Stock Screener</button>
+    <button id="td-tab-btn-activity" class="td-tab admin-only" style="display:none;" onclick="tdTab('activity', this)">Interesting Activity</button>
   </div>
 
-  <!-- MARKET DATA -->
+  <!-- PUBLIC: MARKET DATA -->
   <div id="td-market" class="td-panel active">
     <div class="td-co-hdr">
       <div id="td-co-name">—</div>
@@ -89,7 +95,7 @@
     <div class="td-stats-grid" id="td-stats"></div>
   </div>
 
-  <!-- BACKTEST -->
+  <!-- PUBLIC: BACKTEST ENGINE -->
   <div id="td-backtest" class="td-panel">
     <div class="td-params">
       <h4 style="margin-top:0;">SMA Crossover Strategy</h4>
@@ -106,9 +112,6 @@
         </select>
       </div>
       <button id="td-bt-run" onclick="tdRunBacktest()" style="width:100%;margin-top:6px;">Run Backtest</button>
-      <div class="td-note">
-        Engine stats calculated using main.py logic (Sharpe, Volatility, Max Drawdown).
-      </div>
     </div>
 
     <div class="td-chart-wrap">
@@ -117,18 +120,103 @@
     <div class="td-stats-grid" id="td-bt-stats"></div>
   </div>
 
-<script>
-const TC = { text:'#e1e7ed', sub:'#768390', border:'#262c36', surf:'#131720',
-             green:'#2da44e', red:'#f85149', accent:'#3971a5' };
+  <!-- ADMIN ONLY: SCREENER -->
+  <div id="td-screener" class="td-panel admin-only" style="display:none;">
+    <div style="display: flex; gap: 20px;">
+      <div class="td-params" style="min-width: 260px;">
+        <h4 style="margin-top:0;">Quant Filters</h4>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>Min Rating</span><span class="td-pos" id="lbl_rating">4</span></div>
+          <input type="range" class="td-range-input" id="filter_rating" min="0" max="7" step="1" value="4">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>Wiggle Room %</span><span id="lbl_wiggle">0</span></div>
+          <input type="range" class="td-range-input" id="filter_wiggle" min="0" max="25" step="1" value="0">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>Gross Margin &gt;</span><span id="lbl_gm">30</span>%</div>
+          <input type="range" class="td-range-input" id="filter_gm" min="0" max="100" value="30">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>ROCE &gt;</span><span id="lbl_roce">15</span>%</div>
+          <input type="range" class="td-range-input" id="filter_roce" min="0" max="100" value="15">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>FCF &gt;</span>$<span id="lbl_fcf">1.0</span>B</div>
+          <input type="range" class="td-range-input" id="filter_fcf" min="0" max="50" step="0.5" value="1.0">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>Debt/Eq &lt;</span><span id="lbl_de">0.5</span></div>
+          <input type="range" class="td-range-input" id="filter_de" min="0" max="3" step="0.1" value="0.5">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>PEGY &lt;</span><span id="lbl_pegy">1.0</span></div>
+          <input type="range" class="td-range-input" id="filter_pegy" min="0.1" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="td-range-box">
+          <div class="td-range-hdr"><span>P/E &lt;</span><span id="lbl_pe">20</span></div>
+          <input type="range" class="td-range-input" id="filter_pe" min="1" max="100" value="20">
+        </div>
+        <button id="btnRunScreen" onclick="tdRunScreen()" style="width:100%;">Execute Search</button>
+      </div>
 
+      <div style="flex:1;">
+        <div class="td-ctrl">
+          <button id="btnEditTickers" class="td-pill" onclick="tdToggleTickerModal()">✏️ Edit Tickers</button>
+          <button id="btnUpdateCache" class="td-pill" onclick="tdUpdateCache()">🔄 Sync Cache</button>
+        </div>
+
+        <div id="td-ticker-modal" style="display: none; background: var(--td-surf); padding: 12px; margin-bottom: 12px; border: 1px solid var(--td-border);">
+          <textarea id="td-ticker-text" rows="5" style="width: 100%; background: var(--td-bg); color: var(--td-text); font-family: var(--td-font-mono);"></textarea>
+          <button class="td-pill active" onclick="tdSaveTickers()" style="margin-top: 6px;">Save List</button>
+          <span id="td-ticker-msg" style="margin-left: 8px; color: var(--td-sub);"></span>
+        </div>
+
+        <div class="td-table-wrap">
+          <table class="td-table">
+            <thead>
+              <tr>
+                <th>Ticker</th><th>Name</th><th>Rating</th><th>GM</th><th>ROCE</th><th>FCF</th><th>D/E</th><th>PEGY</th><th>P/E</th><th>Yield</th><th>MoS</th><th>Insider</th>
+              </tr>
+            </thead>
+            <tbody id="screenerResultsTable">
+              <tr><td colspan="12" style="text-align:center; color: var(--td-sub);">Run search to calculate...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN ONLY: INTERESTING ACTIVITY -->
+  <div id="td-activity" class="td-panel admin-only" style="display:none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h4 style="margin: 0;">Significant Insider Radar</h4>
+      <button class="td-pill active" onclick="tdLoadInterestingActivity()">🔄 Refresh</button>
+    </div>
+    <div class="td-table-wrap">
+      <table class="td-table">
+        <thead>
+          <tr><th>Date</th><th>Ticker</th><th>Company</th><th>Insider</th><th>Shares</th></tr>
+        </thead>
+        <tbody id="td-activity-table-body">
+          <tr><td colspan="5" style="text-align:center;">Loading activity...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const TC = { text:'#e1e7ed', sub:'#768390', border:'#262c36', surf:'#131720', green:'#2da44e', red:'#f85149', accent:'#3971a5' };
 let tdSym = null, tdPer = '1Y', tdMChart = null, tdBChart = null;
 
 function tdEl(id){ return document.getElementById(id); }
 
 function tdTab(name, el){
-  document.querySelectorAll('.td-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.td-panel').forEach(p => p.style.display = 'none');
   document.querySelectorAll('.td-tab').forEach(b => b.classList.remove('active'));
-  tdEl('td-' + name).classList.add('active');
+  tdEl('td-' + name).style.display = 'block';
   el.classList.add('active');
 }
 
@@ -150,22 +238,21 @@ function tdBaseChart(labels, datasets, yLabel=''){
       interaction: { mode:'index', intersect:false },
       plugins: {
         legend: { labels: { color: TC.text, boxWidth:8, font:{size:10} } },
-        tooltip: { backgroundColor: TC.surf, borderColor: TC.border, borderWidth:1,
-          titleColor: TC.sub, bodyColor: TC.text }
+        tooltip: { backgroundColor: TC.surf, borderColor: TC.border, borderWidth:1, titleColor: TC.sub, bodyColor: TC.text }
       },
       scales: {
         x: { grid:{color:TC.border+'55'}, ticks:{color:TC.sub, maxRotation:0} },
-        y: { grid:{color:TC.border+'55'}, ticks:{color:TC.sub},
-             title:{ display: !!yLabel, text: yLabel, color: TC.sub } }
+        y: { grid:{color:TC.border+'55'}, ticks:{color:TC.sub}, title:{ display: !!yLabel, text: yLabel, color: TC.sub } }
       }
     }
   };
 }
 
-async function tdSearch(){
-  const sym = tdEl('td-ticker').value.trim().toUpperCase();
+async function tdSearch(targetTicker){
+  const sym = targetTicker || tdEl('td-ticker').value.trim().toUpperCase();
   if(!sym) return;
   tdSym = sym;
+  tdEl('td-ticker').value = sym;
   tdEl('td-status').textContent = 'Loading…';
   try {
     const q = await fetch(`/api/trading/quote/${sym}`).then(r => { if(!r.ok) throw new Error('Not found'); return r.json(); });
@@ -254,5 +341,128 @@ async function tdRunBacktest(){
     cont.appendChild(d);
   }
 }
+
+/* ── Admin Mode Logic ── */
+function loginAsAdmin() {
+  const password = prompt("Enter Admin Password:");
+  if (!password) return;
+
+  fetch("/api/trading/verify_admin", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password })
+  }).then(res => {
+    if (res.ok) {
+      sessionStorage.setItem("adminToken", password);
+      alert("Admin mode active!");
+      checkAdminStatus();
+    } else alert("Invalid password!");
+  });
+}
+
+function checkAdminStatus() {
+  const token = sessionStorage.getItem("adminToken");
+  const adminElements = document.querySelectorAll(".admin-only");
+  const loginBtn = tdEl("admin-login-btn");
+
+  if (token) {
+    adminElements.forEach(el => el.style.display = "block");
+    loginBtn.innerText = "✕ Exit Admin";
+    loginBtn.onclick = logoutAdmin;
+    loginBtn.className = "td-admin-ctrl-btn admin-active";
+  } else {
+    adminElements.forEach(el => el.style.display = "none");
+    loginBtn.innerText = "🔒 Admin Login";
+    loginBtn.onclick = loginAsAdmin;
+    loginBtn.className = "td-admin-ctrl-btn";
+  }
+}
+
+function logoutAdmin() {
+  sessionStorage.removeItem("adminToken");
+  alert("Logged out.");
+  window.location.reload();
+}
+
+async function tdRunScreen() {
+  const tbody = tdEl("screenerResultsTable");
+  tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;">Scanning...</td></tr>`;
+  const body = {
+    min_gm: parseFloat(tdEl("filter_gm").value),
+    min_roce: parseFloat(tdEl("filter_roce").value),
+    min_fcf: parseFloat(tdEl("filter_fcf").value),
+    max_debt_equity: parseFloat(tdEl("filter_de").value),
+    max_pegy: parseFloat(tdEl("filter_pegy").value),
+    max_pe: parseFloat(tdEl("filter_pe").value),
+    min_rating: parseInt(tdEl("filter_rating").value),
+    wiggle_room: parseFloat(tdEl("filter_wiggle").value)
+  };
+  const res = await fetch("/api/trading/screen", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+  }).then(r => r.json());
+  
+  tbody.innerHTML = "";
+  (res.results || []).forEach(r => {
+    const tr = document.createElement("tr");
+    tr.onclick = () => { tdTab('market', tdEl('td-tab-btn-market')); tdSearch(r.symbol); };
+    tr.innerHTML = `
+      <td style="color:var(--td-accent); font-weight:bold; cursor:pointer;">${r.symbol}</td>
+      <td>${r.name}</td><td>${r.rating}</td><td>${r.gross_margin}%</td>
+      <td>${r.roce}%</td><td>$${r.fcf}B</td><td>${r.debt_equity}</td>
+      <td>${r.pegy}</td><td>${r.pe}</td><td>${r.dividend_yield}%</td>
+      <td>${r.margin_of_safety}%</td><td>${r.insider}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function tdToggleTickerModal() {
+  const m = tdEl("td-ticker-modal");
+  m.style.display = m.style.display === "none" ? "block" : "none";
+  if (m.style.display === "block") {
+    fetch("/api/trading/tickers").then(r => r.json()).then(d => {
+      tdEl("td-ticker-text").value = d.content || "";
+    });
+  }
+}
+
+async function tdSaveTickers() {
+  const token = sessionStorage.getItem("adminToken") || "";
+  const content = tdEl("td-ticker-text").value;
+  const r = await fetch("/api/trading/tickers", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Token": token },
+    body: JSON.stringify({ content })
+  });
+  if (r.ok) alert("Tickers saved!");
+  else alert("Unauthorized!");
+}
+
+function tdUpdateCache() {
+  const token = sessionStorage.getItem("adminToken") || "";
+  fetch("/api/trading/update_screener_data", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Token": token }
+  }).then(r => r.json()).then(d => alert(d.message));
+}
+
+async function tdLoadInterestingActivity() {
+  const tbody = tdEl('td-activity-table-body');
+  const res = await fetch('/api/trading/interesting_activity').then(r => r.json());
+  tbody.innerHTML = '';
+  (res.activity || []).forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${item.date}</td><td style="color:var(--td-accent); font-weight:bold;">${item.symbol}</td>
+      <td>${item.name}</td><td>${item.insider}</td>
+      <td class="td-pos">+${Number(item.shares).toLocaleString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  ["gm", "roce", "fcf", "de", "pegy", "pe", "rating", "wiggle"].forEach(k => {
+    const s = tdEl(`filter_${k}`), l = tdEl(`lbl_${k}`);
+    if (s && l) s.oninput = () => l.innerText = s.value;
+  });
+  checkAdminStatus();
+});
 </script>
 {% endblock %}
